@@ -1,4 +1,4 @@
-# Dotman
+# dotman-cli
 
 A modern, Pythonic dotfile manager that uses symbolic links and Jinja2 templates to manage your configuration files across multiple machines.
 
@@ -18,13 +18,13 @@ A modern, Pythonic dotfile manager that uses symbolic links and Jinja2 templates
 ### Installation
 
 ```bash
-# From source
-git clone https://github.com/yourusername/dotman
-cd dotman
-pip install -e .
+# Official method - install with pipx
+pipx install dotman-cli
 
-# Or using pipx
-pipx install git+https://github.com/yourusername/dotman
+# From source
+git clone https://github.com/yourusername/dotman-cli
+cd dotman-cli
+pipx install .
 ```
 
 ### Basic Usage
@@ -32,17 +32,17 @@ pipx install git+https://github.com/yourusername/dotman
 ```bash
 # Initialize in your dotfiles repository
 cd ~/.dotfiles
-dotman init
+dotman-cli init
 
 # Edit .dotman/config.yaml with your configurations
-dotman deploy --dry-run  # Preview changes
-dotman deploy --force    # Apply changes
+dotman-cli deploy --dry-run  # Preview changes
+dotman-cli deploy --force    # Apply changes
 
 # Check status of deployed dotfiles
-dotman status
+dotman-cli status
 
 # List all configured packages
-dotman list
+dotman-cli list
 ```
 
 ## Configuration
@@ -116,11 +116,11 @@ packages:
 
 | Command                      | Description                            |
 | ---------------------------- | -------------------------------------- |
-| `dotman init`                | Initialize dotman in current directory |
-| `dotman deploy [packages]`   | Deploy dotfiles (create symlinks)      |
-| `dotman undeploy [packages]` | Remove deployed symlinks               |
-| `dotman status [packages]`   | Show status of deployed dotfiles       |
-| `dotman list`                | List all available packages            |
+| `dotman-cli init`            | Initialize dotman-cli in current directory |
+| `dotman-cli deploy [packages]`   | Deploy dotfiles (create symlinks)      |
+| `dotman-cli undeploy [packages]` | Remove deployed symlinks               |
+| `dotman-cli status [packages]`   | Show status of deployed dotfiles       |
+| `dotman-cli list`            | List all available packages            |
 
 ### Options
 
@@ -150,8 +150,8 @@ Variables are merged with precedence: package > local > global
 ## Architecture
 
 ```
-dotman/
-├── dotman/
+dotman-cli/
+├── dotman/              # Python package (remains "dotman")
 │   ├── cli.py              # Typer CLI commands
 │   ├── config.py           # Configuration loading and validation
 │   ├── link_manager.py     # Symlink creation and management
