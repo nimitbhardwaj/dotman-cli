@@ -1,0 +1,74 @@
+[project]
+name = "dotman"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.1.0",
+    "pydantic>=2.0.0",
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "coverage>=7.13.1",
+]
+
+[project.scripts]
+dotman = "dotman.main:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+    "coverage[toml]>=7.13.1",
+]
+
+[tool.pytest.ini_options]
+# Test discovery patterns
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# Minimum coverage percentage
+addopts = [
+    "--tb=short",
+    "--strict-markers",
+]
+# Warnings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["D212", "D213"]
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+known-first-party = ["firstkitab"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+combine-as-imports = true
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+ignore_missing_imports = true
+follow_imports = "silent"

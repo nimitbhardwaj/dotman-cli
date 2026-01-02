@@ -1,0 +1,59 @@
+# .coveragerc - Coverage.py configuration for Dotman
+
+[run]
+# Source files to cover
+source = dotman
+# Omit test files from coverage
+omit = 
+    tests/*
+    */test_*
+    */*test*
+# Branch coverage for more thorough testing
+branch = false
+# Parallel mode for pytest-xdist (if used)
+parallel = false
+
+[report]
+# Exclude files from coverage report
+exclude_lines =
+    # Don't complain about missing debug-only comments:
+   pragma: no cover
+    
+    # Don't complain about tests without coverage:
+    def __repr__
+    raise NotImplementedError
+    
+    # Type checking blocks
+    if TYPE_CHECKING:
+    elif typing.TYPE_CHECKING:
+    
+    # Abstract methods that aren't implemented
+    @abstractmethod
+    
+    # Protocol methods
+    @classmethod
+    @staticmethod
+
+# Precision for coverage percentages
+precision = 1
+
+[html]
+# Directory for HTML coverage report
+directory = htmlcov
+# Title for HTML report
+title = Dotman Coverage Report
+
+[xml]
+# Output file for XML coverage report
+output = coverage.xml
+
+[json]
+# Output file for JSON coverage report
+output = coverage.json
+
+[paths]
+# Map source paths for coverage (useful for different development environments)
+source =
+    src
+    */dotman
+    dotman
