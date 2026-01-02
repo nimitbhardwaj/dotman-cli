@@ -1,7 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "dotman"
+authors = [
+    { name = "Nimit Bhardwaj" }
+]
+license = { text = "MIT" }
+keywords = ["dotfiles", "cli", "config", "manager"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+]
 version = "0.1.0"
-description = "Add your description here"
+description = "One more dot file manager but an interesting and easy to use one."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,9 +25,6 @@ dependencies = [
     "pyyaml>=6.0",
     "jinja2>=3.1.0",
     "pydantic>=2.0.0",
-    "mypy>=1.19.1",
-    "pytest>=9.0.2",
-    "coverage>=7.13.1",
 ]
 
 [project.scripts]
@@ -21,21 +33,25 @@ dotman = "dotman.main:main"
 [dependency-groups]
 dev = [
     "ruff>=0.14.10",
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
     "coverage[toml]>=7.13.1",
 ]
 
+# --- REQUIRED for src/ layout ---
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- Tooling ---
 [tool.pytest.ini_options]
-# Test discovery patterns
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-# Minimum coverage percentage
-addopts = [
-    "--tb=short",
-    "--strict-markers",
-]
-# Warnings
+addopts = ["--tb=short", "--strict-markers"]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
@@ -49,22 +65,16 @@ ignore = ["D212", "D213"]
 docstring-code-format = true
 quote-style = "double"
 line-ending = "auto"
-skip-magic-trailing-comma = false
 indent-style = "space"
 
 [tool.ruff.lint.isort]
-known-first-party = ["firstkitab"]
+known-first-party = ["dotman"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 combine-as-imports = true
 
 [tool.mypy]
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-disallow_untyped_decorators = false
-no_implicit_optional = false
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
@@ -72,3 +82,4 @@ warn_unreachable = true
 strict_equality = true
 ignore_missing_imports = true
 follow_imports = "silent"
+

@@ -102,12 +102,11 @@ packages:
       # Simple symlink
       - source: "config.conf"
         target: "~/.config.conf"
-      
-      # Template file (rendered with variables)
-      - source: "template.conf"
+
+      # Template file (rendered with variables, detected by .j2 extension)
+      - source: "template.conf.j2"
         target: "~/.rendered.conf"
-        template: true
-      
+
       # Directory (recursively symlinks all files)
       - source: "mydir"
         target: "~/.mydir"
@@ -115,13 +114,13 @@ packages:
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `dotman init` | Initialize dotman in current directory |
-| `dotman deploy [packages]` | Deploy dotfiles (create symlinks) |
-| `dotman undeploy [packages]` | Remove deployed symlinks |
-| `dotman status [packages]` | Show status of deployed dotfiles |
-| `dotman list` | List all available packages |
+| Command                      | Description                            |
+| ---------------------------- | -------------------------------------- |
+| `dotman init`                | Initialize dotman in current directory |
+| `dotman deploy [packages]`   | Deploy dotfiles (create symlinks)      |
+| `dotman undeploy [packages]` | Remove deployed symlinks               |
+| `dotman status [packages]`   | Show status of deployed dotfiles       |
+| `dotman list`                | List all available packages            |
 
 ### Options
 
@@ -141,6 +140,7 @@ theme = {{theme}}
 ```
 
 Template variables can be defined at:
+
 - Global level (`.dotman/config.yaml`)
 - Package level (within package definition)
 - Local level (`.dotman/local.yaml`)
