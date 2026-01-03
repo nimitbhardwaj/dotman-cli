@@ -120,13 +120,13 @@ packages:
 
 ## Commands
 
-| Command                      | Description                            |
-| ---------------------------- | -------------------------------------- |
-| `dotman init`                | Initialize dotman in current directory |
-| `dotman deploy [packages]`   | Deploy dotfiles (create symlinks)      |
-| `dotman undeploy [packages]` | Remove deployed symlinks               |
-| `dotman status [packages]`   | Show status of deployed dotfiles       |
-| `dotman list`                | List all available packages            |
+| Command                      | Description                                    |
+| ---------------------------- | ---------------------------------------------- |
+| `dotman init`                | Initialize dotman in current directory         |
+| `dotman deploy [packages]`   | Deploy dotfiles (create symlinks)              |
+| `dotman undeploy [packages]` | Remove deployed symlinks                       |
+| `dotman status [packages]`   | Show status of deployed dotfiles               |
+| `dotman list`                | List all available packages                    |
 | `dotman absorb [packages]`   | Absorb unmanaged files from target directories |
 
 ### Options
@@ -160,6 +160,7 @@ When you run `dotman absorb`, dotman:
 ### Smart Skipping
 
 Absorption automatically skips:
+
 - **Symlinks** - Already managed files
 - **Template outputs** - Files rendered from `.j2` templates (avoids duplicates)
 - **Existing files** - Files already present in the package source
@@ -176,9 +177,9 @@ packages:
       - source: "nvim"
         target: "~/.config/nvim"
         absorb_ignore:
-          - "node_modules"      # Ignore any path containing node_modules
-          - "*.log"             # Ignore log files
-          - ".git/**"           # Ignore git directories
+          - "node_modules" # Ignore any path containing node_modules
+          - "*.log" # Ignore log files
+          - ".git/**" # Ignore git directories
 ```
 
 The `absorb_ignore` field accepts a list of regex patterns that are matched against the full file path. If a file matches any pattern, it will be skipped during absorption.
@@ -193,11 +194,11 @@ packages:
     files:
       - source: "nvim/base"
         target: "~/.config/nvim"
-  
+
   nvim-home:
     files:
       - source: "nvim/home"
-        target: "~/.config/nvim"  # Will be skipped, nvim-base processes first
+        target: "~/.config/nvim" # Will be skipped, nvim-base processes first
 ```
 
 ### Dry Run Mode
@@ -209,6 +210,7 @@ dotman absorb --dry-run
 ```
 
 When a new file appears in a target directory (e.g., `~/.config/nvim/new_setting.json`), dotman will:
+
 1. Move the file to the corresponding source directory in your dotfiles repository
 2. Replace the original file with a symlink pointing to the source
 
@@ -223,9 +225,9 @@ packages:
       - source: "nvim"
         target: "~/.config/nvim"
         absorb_ignore:
-          - "node_modules"      # Ignore any path containing node_modules
-          - "\\.git"            # Ignore any path containing .git
-          - ".*\\.log"          # Ignore any .log files
+          - "node_modules" # Ignore any path containing node_modules
+          - "\\.git" # Ignore any path containing .git
+          - ".*\\.log" # Ignore any .log files
 ```
 
 ### Smart Template Handling
@@ -256,26 +258,6 @@ dotman/
 ├── AGENTS.md                   # Guidelines for AI agents
 └── TODO.md                     # Development roadmap
 ```
-dotman-cli/
-├── src/
-│   └── dotman/              # Python package
-│       ├── __init__.py
-│       ├── main.py             # Entry point
-│       ├── cli.py              # Typer CLI commands
-│       ├── config.py           # Configuration loading and validation
-│       ├── link_manager.py     # Symlink creation and management
-│       ├── template_engine.py  # Jinja2 template rendering
-│       └── exceptions.py       # Custom exceptions
-├── tests/                      # Test suite
-│   ├── __init__.py
-│   ├── test_config.py
-│   ├── test_link_manager.py
-│   ├── test_template_engine.py
-│   └── test_exceptions.py
-├── pyproject.toml              # Project configuration
-├── README.md                   # This file
-├── AGENTS.md                   # Guidelines for AI agents
-└── TODO.md                     # Development roadmap
 
 ## Safety Features
 
