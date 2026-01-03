@@ -1,5 +1,0 @@
-settings:
-  backup_dir: .dotman/backups
-  template_suffix: .j2
-variables: {}
-packages: {}

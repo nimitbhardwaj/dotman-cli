@@ -21,6 +21,7 @@ class FileMapping(BaseModel):
 
     source: str
     target: str
+    absorb_ignore: list[str] = Field(default_factory=list)
 
 
 class PackageConfig(BaseModel):

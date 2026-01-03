@@ -66,13 +66,75 @@ A Python-based dotfile manager that replicates Dotter's functionality with a Pyt
   - [x] Automatic backup before overwriting files
   - [x] Dry-run mode for previewing changes
   - [x] Validation of configuration before deployment
+- [x] **pipx installation support** (ONLY supported method)
 
-- [ ] **Progress Indicators**
-  - [ ] Progress indicators for large deployments
-  - [ ] Interactive prompts for missing configuration
-  - [ ] Verbose mode for detailed logging
+- [x] **Environment Variable Support**
+  - [x] DOTMAN_CONFIG_DIR environment variable for config directory
+  - [x] `--config-dir` / `-c` CLI flag to override config directory
+  - [x] Priority: CLI flag > env var > auto-detect (.dotman/)
+
+### Phase 4.5: File Absorption (NEW)
+
+- [ ] **dotman absorb Command**
+  - [ ] Absorb unmanaged files from target directories
+  - [ ] Interactive mode with prompts
+  - [ ] Auto-absorption mode (--auto flag)
+  - [ ] Dry-run mode (--dry-run flag)
+  - [ ] Package-specific absorption (--package flag)
+  - [ ] Verbose output for debugging
+
+- [ ] **Exclude Patterns**
+  - [ ] .gitignore-style pattern matching
+  - [ ] Support for negation patterns (e.g., "!\*\*/package.json")
+  - [ ] Configuration in config.yaml:
+    ```yaml
+    absorb:
+      exclude_patterns:
+        - "node_modules/**"
+        - ".git/**"
+        - "*.log"
+        - "*.swp"
+    ```
+  - [ ] CLI --exclude flag for runtime patterns
+
+- [ ] **File Discovery**
+  - [ ] Scan target directories for unmanaged files
+  - [ ] Detect if file is already a symlink (skip)
+  - [ ] Detect if file is template-generated (skip)
+  - [ ] Match destination path to package
+  - [ ] Handle multiple packages with same destination (user selection)
+
+- [ ] **File Absorption Logic**
+  - [ ] Copy file to package source directory
+  - [ ] Preserve directory structure
+  - [ ] Preserve file permissions (or normalize to 644)
+  - [ ] Create symlink after absorption
+  - [ ] Handle file conflicts (diff + overwrite/skip)
+  - [ ] Handle duplicate absorptions gracefully
+
+- [ ] **Conflict Resolution**
+  - [ ] User prompts for ambiguous cases
+  - [ ] Force absorption to specific package (--package flag)
+  - [ ] Skip files that already exist in package (or diff first)
+  - [ ] Warning for template-generated files
 
 ### Phase 5: Advanced Features (FUTURE)
+
+- [ ] **Package Include System**
+  - [ ] Include additional YAML files
+  - [ ] Package dependencies with composition
+  - [ ] Configuration merging with precedence
+  - [ ] OS-specific configuration includes
+  - [ ] Dependency resolution (topological sort)
+  - [ ] Circular dependency detection
+  - [ ] Example:
+    ```yaml
+    # packages/nvim-home/config.yaml
+    depends:
+      - nvim-core
+    files:
+      - plugins-home.vim
+    ```
 
 - [ ] **Watch Mode**
   - [ ] `dotman watch` - continuously monitor and deploy changes
@@ -84,11 +146,14 @@ A Python-based dotfile manager that replicates Dotter's functionality with a Pyt
   - [ ] Pre/post undeploy hooks
   - [ ] Hooks rendered as templates
   - [ ] Hook execution with error handling
-
-- [ ] **Include System**
-  - [ ] Include additional YAML files
-  - [ ] Configuration merging with precedence
-  - [ ] OS-specific configuration includes
+  - [ ] Configuration:
+    ```yaml
+    hooks:
+      pre_deploy:
+        - "echo 'Starting deploy'"
+      post_deploy:
+        - "fc-cache -fv"
+    ```
 
 ### Phase 6: Remote & Sync Features (FUTURE)
 
@@ -113,12 +178,6 @@ A Python-based dotfile manager that replicates Dotter's functionality with a Pyt
   - [x] Unit tests for core functionality (177 tests)
   - [x] Test coverage tracking
   - [x] Integration tests for CLI commands
-
-- [ ] **Packaging**
-  - [ ] PyPI package setup
-  - [ ] Wheel distribution
-  - [ ] Homebrew formula (for macOS)
-  - [ ] pipx installation support
 
 ## Architecture
 
