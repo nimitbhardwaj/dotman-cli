@@ -1198,6 +1198,7 @@ def watch(
 
         deploy_scheduled = False
         last_change_time: float | None = None
+        pending_changes: set[Path] = set()
 
         while running:
             try:
@@ -1213,6 +1214,7 @@ def watch(
 
                 if should_deploy_event(event):
                     last_change_time = time.monotonic()
+                    pending_changes.add(event.path)
                     if not deploy_scheduled:
                         deploy_scheduled = True
 
@@ -1225,9 +1227,16 @@ def watch(
             if deploy_scheduled and last_change_time is not None:
                 time_since_change = time.monotonic() - last_change_time
                 if time_since_change >= debounce:
-                    if dry_run:
+                    if not quiet and pending_changes:
+                        changed_files = ", ".join(
+                            str(p.relative_to(config.dotfiles_dir))
+                            for p in list(pending_changes)[:5]
+                        )
+                        if len(pending_changes) > 5:
+                            changed_files += f" ... (+{len(pending_changes) - 5} more)"
                         console.print(
-                            "\n[cyan]Change detected - dry-run deploy...[/cyan]\n"
+                            f"\n[cyan]Deploying changes "
+                            f"({len(pending_changes)} files): {changed_files}[/cyan]\n"
                         )
                     else:
                         console.print("\n[cyan]Change detected - deploying...[/cyan]\n")
@@ -1243,6 +1252,7 @@ def watch(
 
                     deploy_scheduled = False
                     last_change_time = None
+                    pending_changes.clear()
 
     finally:
         watcher.close()
