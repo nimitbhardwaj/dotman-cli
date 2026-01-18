@@ -77,3 +77,33 @@ class MissingDependencyError(DependencyError):
     """Required dependency package is not defined in configuration."""
 
     pass
+
+
+class CircularDependencyError(DependencyError):
+    """Circular dependency detected between packages."""
+
+    pass
+
+
+class HookError(DotmanError):
+    """Hook-related errors."""
+
+    pass
+
+
+class HookExecutionError(HookError):
+    """Error executing a hook."""
+
+    pass
+
+
+class HistoryError(DotmanError):
+    """History-related errors."""
+
+    pass
+
+
+class RollbackError(DotmanError):
+    """Rollback-related errors."""
+
+    pass

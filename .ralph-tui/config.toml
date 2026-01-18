@@ -1,0 +1,11 @@
+configVersion = "2.0"
+maxIterations = 10
+agent = "opencode"
+tracker = "beads"
+autoCommit = false
+subagentTracingDetail = "minimal"
+
+[agentOptions]
+[trackerOptions]
+beadsDir = ".beads"
+labels = "ralph"

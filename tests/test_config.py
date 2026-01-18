@@ -8,6 +8,7 @@ import yaml
 
 from dotman.config import Config, FileMapping, GlobalConfig, LocalConfig, PackageConfig
 from dotman.exceptions import (
+    CircularDependencyError,
     ConfigNotFoundError,
     ConfigParseError,
     MissingDependencyError,
@@ -449,10 +450,10 @@ class TestConfigDependencyValidation:
         self.local_file.write_text(yaml.dump({"packages": ["a", "b"]}))
 
         config = Config(self.repo_dir)
-        # Circular dependencies cause recursion errors in the current implementation
-        # This test documents the current behavior
-        with pytest.raises(RecursionError):
+        # Circular dependencies now raise a proper CircularDependencyError
+        with pytest.raises(CircularDependencyError) as exc_info:
             config.validate_dependencies()
+        assert "circular" in str(exc_info.value).lower()
 
 
 class TestConfigPackageRetrieval:

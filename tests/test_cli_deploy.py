@@ -327,3 +327,318 @@ class TestDeployCommand:
         assert bashrc_tmpl.exists(), "Rendered template should exist"
         assert not bashrc_tmpl.is_symlink(), "Rendered template should not be symlink"
         assert "testuser" in bashrc_tmpl.read_text()
+
+
+class TestDeployPostDeployHooks:
+    """Tests for post-deploy hook execution during deploy command."""
+
+    def test_deploy_executes_post_deploy_hooks(
+        self, runner, temp_repo, env_with_home, monkeypatch, home_dir
+    ):
+        """Test deploy executes post_deploy hooks after file deployment."""
+        repo_dir = temp_repo
+        dotman_dir = repo_dir / ".dotman"
+        config_path = dotman_dir / "config.yaml"
+        local_config_path = dotman_dir / "local.yaml"
+
+        config = {
+            "settings": {
+                "backup_dir": ".dotman/backups",
+                "template_suffix": ".j2",
+            },
+            "variables": {},
+            "packages": {
+                "test_pkg": {
+                    "depends": [],
+                    "files": [{"source": "file.txt", "target": "~/.test_file"}],
+                    "variables": {},
+                    "hooks": {
+                        "pre_deploy": [],
+                        "post_deploy": ["echo 'post-deploy hook executed'"],
+                    },
+                },
+            },
+        }
+
+        local_config = {
+            "packages": ["test_pkg"],
+            "variables": {},
+            "file_overrides": {},
+        }
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        with open(local_config_path, "w") as f:
+            yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+        (repo_dir / "file.txt").write_text("test content")
+
+        monkeypatch.chdir(repo_dir)
+
+        result = runner.invoke(app, ["deploy"])
+
+        assert result.exit_code == 0
+        assert "post-deploy hook executed" in result.output
+        assert "Running post-deploy hook" in result.output
+
+    def test_deploy_post_deploy_hook_failure_does_not_abort(
+        self, runner, temp_repo, env_with_home, monkeypatch, home_dir
+    ):
+        """Test deploy continues even if post_deploy hook fails."""
+        repo_dir = temp_repo
+        dotman_dir = repo_dir / ".dotman"
+        config_path = dotman_dir / "config.yaml"
+        local_config_path = dotman_dir / "local.yaml"
+
+        config = {
+            "settings": {
+                "backup_dir": ".dotman/backups",
+                "template_suffix": ".j2",
+            },
+            "variables": {},
+            "packages": {
+                "test_pkg": {
+                    "depends": [],
+                    "files": [{"source": "file.txt", "target": "~/.test_file"}],
+                    "variables": {},
+                    "hooks": {
+                        "pre_deploy": [],
+                        "post_deploy": ["exit 1"],
+                    },
+                },
+            },
+        }
+
+        local_config = {
+            "packages": ["test_pkg"],
+            "variables": {},
+            "file_overrides": {},
+        }
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        with open(local_config_path, "w") as f:
+            yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+        (repo_dir / "file.txt").write_text("test content")
+
+        monkeypatch.chdir(repo_dir)
+
+        result = runner.invoke(app, ["deploy"])
+
+        assert result.exit_code == 0
+        assert "complete" in result.output.lower()
+        assert "Hook warning" in result.output or "failed" in result.output.lower()
+
+    def test_deploy_post_deploy_hook_shows_in_dry_run(
+        self, runner, temp_repo, env_with_home, monkeypatch, home_dir
+    ):
+        """Test deploy with --dry-run shows post_deploy hooks but doesn't execute."""
+        repo_dir = temp_repo
+        dotman_dir = repo_dir / ".dotman"
+        config_path = dotman_dir / "config.yaml"
+        local_config_path = dotman_dir / "local.yaml"
+
+        config = {
+            "settings": {
+                "backup_dir": ".dotman/backups",
+                "template_suffix": ".j2",
+            },
+            "variables": {},
+            "packages": {
+                "test_pkg": {
+                    "depends": [],
+                    "files": [{"source": "file.txt", "target": "~/.test_file"}],
+                    "variables": {},
+                    "hooks": {
+                        "pre_deploy": [],
+                        "post_deploy": ["echo 'would run post-deploy'"],
+                    },
+                },
+            },
+        }
+
+        local_config = {
+            "packages": ["test_pkg"],
+            "variables": {},
+            "file_overrides": {},
+        }
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        with open(local_config_path, "w") as f:
+            yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+        (repo_dir / "file.txt").write_text("test content")
+
+        monkeypatch.chdir(repo_dir)
+
+        result = runner.invoke(app, ["deploy", "--dry-run"])
+
+        assert result.exit_code == 0
+        assert "Would run post-deploy hook" in result.output
+        assert "echo 'would run post-deploy'" in result.output
+
+    def test_deploy_post_deploy_hook_receives_variables(
+        self, runner, temp_repo, env_with_home, monkeypatch, home_dir
+    ):
+        """Test post_deploy hooks receive package variables for template rendering."""
+        repo_dir = temp_repo
+        dotman_dir = repo_dir / ".dotman"
+        config_path = dotman_dir / "config.yaml"
+        local_config_path = dotman_dir / "local.yaml"
+
+        config = {
+            "settings": {
+                "backup_dir": ".dotman/backups",
+                "template_suffix": ".j2",
+            },
+            "variables": {"global_var": "global_value"},
+            "packages": {
+                "test_pkg": {
+                    "depends": [],
+                    "files": [{"source": "file.txt", "target": "~/.test_file"}],
+                    "variables": {"package_var": "package_value"},
+                    "hooks": {
+                        "pre_deploy": [],
+                        "post_deploy": [
+                            "echo 'var={{package_var}} global={{global_var}}'"
+                        ],
+                    },
+                },
+            },
+        }
+
+        local_config = {
+            "packages": ["test_pkg"],
+            "variables": {},
+            "file_overrides": {},
+        }
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        with open(local_config_path, "w") as f:
+            yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+        (repo_dir / "file.txt").write_text("test content")
+
+        monkeypatch.chdir(repo_dir)
+
+        result = runner.invoke(app, ["deploy"])
+
+        assert result.exit_code == 0
+        assert "var=package_value" in result.output
+        assert "global=global_value" in result.output
+
+    def test_deploy_post_deploy_hook_receives_package_name(
+        self, runner, temp_repo, env_with_home, monkeypatch, home_dir
+    ):
+        """Test post_deploy hooks receive package_name variable."""
+        repo_dir = temp_repo
+        dotman_dir = repo_dir / ".dotman"
+        config_path = dotman_dir / "config.yaml"
+        local_config_path = dotman_dir / "local.yaml"
+
+        config = {
+            "settings": {
+                "backup_dir": ".dotman/backups",
+                "template_suffix": ".j2",
+            },
+            "variables": {},
+            "packages": {
+                "my_special_package": {
+                    "depends": [],
+                    "files": [{"source": "file.txt", "target": "~/.test_file"}],
+                    "variables": {},
+                    "hooks": {
+                        "pre_deploy": [],
+                        "post_deploy": ["echo 'Package: {{package_name}}'"],
+                    },
+                },
+            },
+        }
+
+        local_config = {
+            "packages": ["my_special_package"],
+            "variables": {},
+            "file_overrides": {},
+        }
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        with open(local_config_path, "w") as f:
+            yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+        (repo_dir / "file.txt").write_text("test content")
+
+        monkeypatch.chdir(repo_dir)
+
+        result = runner.invoke(app, ["deploy"])
+
+        assert result.exit_code == 0
+        assert "Package: my_special_package" in result.output
+
+    def test_deploy_multiple_packages_with_post_deploy_hooks(
+        self, runner, temp_repo, env_with_home, monkeypatch, home_dir
+    ):
+        """Test post_deploy hooks run for each package after its files."""
+        repo_dir = temp_repo
+        dotman_dir = repo_dir / ".dotman"
+        config_path = dotman_dir / "config.yaml"
+        local_config_path = dotman_dir / "local.yaml"
+
+        config = {
+            "settings": {
+                "backup_dir": ".dotman/backups",
+                "template_suffix": ".j2",
+            },
+            "variables": {},
+            "packages": {
+                "pkg_a": {
+                    "depends": [],
+                    "files": [{"source": "a.txt", "target": "~/.a_file"}],
+                    "variables": {},
+                    "hooks": {
+                        "pre_deploy": [],
+                        "post_deploy": ["echo 'post-deploy A'"],
+                    },
+                },
+                "pkg_b": {
+                    "depends": [],
+                    "files": [{"source": "b.txt", "target": "~/.b_file"}],
+                    "variables": {},
+                    "hooks": {
+                        "pre_deploy": [],
+                        "post_deploy": ["echo 'post-deploy B'"],
+                    },
+                },
+            },
+        }
+
+        local_config = {
+            "packages": ["pkg_a", "pkg_b"],
+            "variables": {},
+            "file_overrides": {},
+        }
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        with open(local_config_path, "w") as f:
+            yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+        (repo_dir / "a.txt").write_text("content a")
+        (repo_dir / "b.txt").write_text("content b")
+
+        monkeypatch.chdir(repo_dir)
+
+        result = runner.invoke(app, ["deploy"])
+
+        assert result.exit_code == 0
+        assert "post-deploy A" in result.output
+        assert "post-deploy B" in result.output

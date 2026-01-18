@@ -80,7 +80,7 @@ editor = {{ editor }}
             "email": "user@example.com",
             "editor": "vim",
         }
-        results = manager.create_link(
+        manager.create_link(
             source_dir, target_dir, template_engine=template_engine, variables=variables
         )
 

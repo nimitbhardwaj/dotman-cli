@@ -7,6 +7,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from dotman.exceptions import (
+    CircularDependencyError,
     ConfigNotFoundError,
     ConfigParseError,
     MissingDependencyError,
@@ -24,12 +25,20 @@ class FileMapping(BaseModel):
     absorb_ignore: list[str] = Field(default_factory=list)
 
 
+class HookConfig(BaseModel):
+    """Configuration for package hooks."""
+
+    pre_deploy: list[str] = Field(default_factory=list)
+    post_deploy: list[str] = Field(default_factory=list)
+
+
 class PackageConfig(BaseModel):
     """Configuration for a single package."""
 
     depends: list[str] = Field(default_factory=list)
     files: list[FileMapping] = Field(default_factory=list)
     variables: dict[str, Any] = Field(default_factory=dict)
+    hooks: HookConfig = Field(default_factory=HookConfig)
 
 
 class GlobalSettings(BaseModel):
@@ -165,17 +174,28 @@ class Config:
                 )
 
         # Then validate dependencies recursively
-        def validate_recursive(pkg_name: str, validated: set[str]) -> None:
+        def validate_recursive(
+            pkg_name: str, validated: set[str], visiting: set[str]
+        ) -> None:
             if pkg_name in validated:
                 return
 
+            # Detect circular dependency
+            if pkg_name in visiting:
+                path = " -> ".join(visiting) + " -> " + pkg_name
+                raise CircularDependencyError(f"Circular dependency detected: {path}")
+
+            visiting.add(pkg_name)
+
             package = self.get_package(pkg_name)
             if not package:
+                visiting.remove(pkg_name)
                 return  # Already checked above
 
             for dep in package.depends:
                 # Check if dependency is defined in config
                 if dep not in defined_packages:
+                    visiting.remove(pkg_name)
                     raise MissingDependencyError(
                         f"Package '{pkg_name}' depends on '{dep}',"
                         f" but '{dep}' is not defined in config.yaml.\n"
@@ -183,16 +203,20 @@ class Config:
                     )
                 # Check if dependency is enabled in local.yaml
                 if dep not in enabled_packages:
+                    visiting.remove(pkg_name)
                     raise MissingDependencyError(
                         f"Package '{pkg_name}' depends on '{dep}',"
                         f" but '{dep}' is not enabled in local.yaml.\n"
                         f"Add '{dep}' to the packages list in local.yaml."
                     )
                 # Recursively validate the dependency
-                validate_recursive(dep, validated)
+                validate_recursive(dep, validated, visiting)
+
+            visiting.remove(pkg_name)
+            validated.add(pkg_name)
 
         for pkg_name in packages_to_validate:
-            validate_recursive(pkg_name, set())
+            validate_recursive(pkg_name, set(), set())
 
     def get_all_packages_with_dependencies(
         self, package_names: list[str] | None = None

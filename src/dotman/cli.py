@@ -2,6 +2,7 @@
 
 import os
 import re
+import uuid
 from pathlib import Path
 from typing import Annotated
 
@@ -12,10 +13,13 @@ from rich.table import Table
 from dotman.config import Config
 from dotman.exceptions import (
     DotmanError,
+    HookExecutionError,
     LinkExistsError,
     LinkTargetMissingError,
     MissingDependencyError,
 )
+from dotman.history import DeployedFile, HistoryManager
+from dotman.hook_executor import HookExecutor
 from dotman.link_manager import LinkManager, LinkStatus
 from dotman.template_engine import TemplateEngine
 
@@ -86,7 +90,6 @@ def deploy(
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
         raise typer.Exit(1)
 
-    # Validate dependencies before proceeding
     packages_to_validate = packages or config.get_enabled_packages()
     try:
         config.validate_dependencies(packages_to_validate)
@@ -104,6 +107,11 @@ def deploy(
 
     link_manager = LinkManager(config.backup_dir)
     template_engine = TemplateEngine(config.dotfiles_dir)
+    history_manager = HistoryManager(config.dotman_dir)
+    hook_executor = HookExecutor(dry_run=dry_run)
+
+    deployment_id = str(uuid.uuid4())[:8]
+    deployed_files: list[DeployedFile] = []
 
     if dry_run:
         console.print("[cyan]Dry run mode - no changes will be made[/cyan]")
@@ -120,14 +128,40 @@ def deploy(
         console.print(f"\n[bold]Deploying package: {pkg_name}[/bold]")
         variables = config.get_merged_variables(pkg_name)
 
+        skip_package = False
+        if pkg.hooks.pre_deploy:
+            for hook_cmd in pkg.hooks.pre_deploy:
+                if dry_run:
+                    console.print(
+                        f"  [cyan]Would run pre-deploy hook:[/cyan] {hook_cmd}"
+                    )
+                else:
+                    console.print(f"  [cyan]Running pre-deploy hook:[/cyan] {hook_cmd}")
+                    try:
+                        hook_executor.execute_hook(
+                            hook_cmd,
+                            pkg_name,
+                            "pre_deploy",
+                            variables,
+                            config.dotfiles_dir,
+                            None,
+                        )
+                    except HookExecutionError as e:
+                        console.print(f"  [red]Hook failed:[/red] {e}")
+                        console.print(
+                            f"  [yellow]Skipping package '{pkg_name}'...[/yellow]"
+                        )
+                        skip_package = True
+                        break
+
+        if skip_package:
+            continue
+
         for file_mapping in pkg.files:
             source = config.dotfiles_dir / file_mapping.source
             target = Path(file_mapping.target).expanduser()
 
             try:
-                # Check if file is a template
-                # (either explicitly marked or auto-detected by .j2 extension)
-                # Auto-detect templates by .j2 extension
                 is_template = link_manager.is_template_file(source)
 
                 if is_template:
@@ -136,6 +170,14 @@ def deploy(
                         console.print(f"  [green]Rendered:[/green] {target}")
                     else:
                         console.print(f"  [cyan]Would render:[/cyan] {target}")
+
+                    deployed_files.append(
+                        DeployedFile(
+                            source=str(source),
+                            target=str(target),
+                            is_template=True,
+                        )
+                    )
                 else:
                     results = link_manager.create_link(
                         source, target, force, dry_run, template_engine, variables
@@ -154,6 +196,17 @@ def deploy(
                                     f"    [yellow]Backed"
                                     f" up to:[/yellow] {result.backed_up}"
                                 )
+
+                            deployed_files.append(
+                                DeployedFile(
+                                    source=str(result.source),
+                                    target=str(result.target),
+                                    is_template=False,
+                                    backup_path=str(result.backed_up)
+                                    if result.backed_up
+                                    else None,
+                                )
+                            )
             except LinkExistsError as e:
                 console.print(f"  [red]Error:[/red] {e}")
             except LinkTargetMissingError as e:
@@ -161,7 +214,49 @@ def deploy(
             except DotmanError as e:
                 console.print(f"  [red]Error:[/red] {e}")
 
-    console.print("\n[green]Deploy complete![/green]")
+        if pkg.hooks.post_deploy:
+            target_dir = None
+            if pkg.files:
+                first_target = Path(pkg.files[0].target).expanduser()
+                target_dir = first_target.parent
+
+            for hook_cmd in pkg.hooks.post_deploy:
+                rendered_cmd = hook_executor._render_template(
+                    hook_cmd, pkg_name, variables, config.dotfiles_dir, target_dir
+                )
+                if dry_run:
+                    console.print(
+                        f"  [cyan]Would run post-deploy hook:[/cyan] {rendered_cmd}"
+                    )
+                else:
+                    console.print(
+                        f"  [cyan]Running post-deploy hook:[/cyan] {rendered_cmd}"
+                    )
+                    try:
+                        hook_executor.execute_hook(
+                            hook_cmd,
+                            pkg_name,
+                            "post_deploy",
+                            variables,
+                            config.dotfiles_dir,
+                            target_dir,
+                        )
+                    except HookExecutionError as e:
+                        console.print(f"  [yellow]Hook warning:[/yellow] {e}")
+
+    if deployed_files and not dry_run:
+        history_manager.add_deployment(
+            deployment_id=deployment_id,
+            packages=packages_to_deploy,
+            files=deployed_files,
+            dry_run=dry_run,
+        )
+        console.print("\n[green]Deploy complete![/green]")
+        console.print(f"[dim]Deployment ID: {deployment_id}[/dim]")
+    elif dry_run and deployed_files:
+        console.print("\n[cyan]Dry run complete - no history recorded[/cyan]")
+    else:
+        console.print("\n[green]Deploy complete![/green]")
 
 
 @app.command()
@@ -522,3 +617,182 @@ def absorb_changes(
                         console.print(f"[red]Error absorbing file:[/red] {e}")
 
     console.print("[green]Absorb complete![/green]")
+
+
+@app.command(name="history")
+def show_history(
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="Number of recent deployments to show"),
+    ] = 10,
+    config_dir: Annotated[
+        Path | None,
+        typer.Option("--config-dir", "-c", help="The path of config directory"),
+    ] = None,
+) -> None:
+    """Show deployment history."""
+    config = get_config(config_dir)
+
+    if not config.is_initialized():
+        console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
+        raise typer.Exit(1)
+
+    history_manager = HistoryManager(config.dotman_dir)
+    deployments = history_manager.get_deployments(limit=limit)
+
+    if not deployments:
+        console.print("[yellow]No deployment history found.[/yellow]")
+        return
+
+    table = Table(title="Deployment History")
+    table.add_column("ID", style="cyan")
+    table.add_column("Timestamp", style="white")
+    table.add_column("Packages", style="white")
+    table.add_column("Files", style="white")
+    table.add_column("Type", style="white")
+
+    for dep in deployments:
+        type_str = "Dry Run" if dep.dry_run else "Live"
+        packages_str = ", ".join(dep.packages) if dep.packages else "-"
+        files_count = str(len(dep.files))
+
+        table.add_row(
+            dep.deployment_id,
+            dep.timestamp[:19].replace("T", " "),
+            packages_str,
+            files_count,
+            type_str,
+        )
+
+    console.print(table)
+
+
+@app.command(name="rollback")
+def rollback(
+    deployment_id: Annotated[
+        str | None,
+        typer.Argument(help="Deployment ID to rollback (default: latest)"),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", "-n", help="Show what would be done without doing it"
+        ),
+    ] = False,
+    config_dir: Annotated[
+        Path | None,
+        typer.Option("--config-dir", "-c", help="The path of config directory"),
+    ] = None,
+) -> None:
+    """Rollback a deployment by restoring from backup and removing symlinks."""
+    config = get_config(config_dir)
+
+    if not config.is_initialized():
+        console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
+        raise typer.Exit(1)
+
+    history_manager = HistoryManager(config.dotman_dir)
+
+    deployment = None
+    if deployment_id:
+        deployment = history_manager.get_deployment(deployment_id)
+        if not deployment:
+            console.print(f"[red]Deployment '{deployment_id}' not found.[/red]")
+            console.print("Use 'dotman history' to see available deployments.")
+            raise typer.Exit(1)
+    else:
+        deployment = history_manager.get_latest_deployment()
+        if not deployment:
+            console.print("[red]No deployments found in history.[/red]")
+            raise typer.Exit(1)
+
+    if deployment.dry_run:
+        console.print(
+            "[yellow]Cannot rollback a dry-run deployment"
+            " (no changes were made).[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    if dry_run:
+        console.print("[cyan]Rollback dry run - no changes will be made[/cyan]")
+    else:
+        console.print(
+            f"[bold]Rolling back deployment: {deployment.deployment_id}[/bold]"
+        )
+
+    console.print(f"Packages: {', '.join(deployment.packages)}")
+    console.print(f"Files to process: {len(deployment.files)}\n")
+
+    success_count = 0
+    fail_count = 0
+    skipped_count = 0
+
+    for deployed_file in deployment.files:
+        target = Path(deployed_file.target)
+        backup_path = deployed_file.backup_path
+
+        console.print(f"Processing: {target}")
+
+        if deployed_file.is_template:
+            if target.exists():
+                if not dry_run:
+                    target.unlink()
+                    console.print(
+                        f"  [green]Removed rendered template: {target}[/green]"
+                    )
+                else:
+                    console.print(
+                        f"  [cyan]Would remove rendered template: {target}[/cyan]"
+                    )
+                success_count += 1
+            else:
+                console.print(f"  [yellow]Already removed: {target}[/yellow]")
+                skipped_count += 1
+        else:
+            if target.is_symlink() or target.exists():
+                if not dry_run:
+                    if target.is_symlink():
+                        target.unlink()
+                    elif target.is_file():
+                        target.unlink()
+                    console.print(f"  [green]Removed symlink: {target}[/green]")
+                else:
+                    console.print(f"  [cyan]Would remove symlink: {target}[/cyan]")
+                success_count += 1
+            else:
+                console.print(f"  [yellow]Already removed: {target}[/yellow]")
+                skipped_count += 1
+
+            if backup_path and Path(backup_path).exists():
+                if not dry_run:
+                    if history_manager.restore_from_backup(Path(backup_path), target):
+                        console.print(
+                            f"  [green]Restored from backup: {backup_path}[/green]"
+                        )
+                        history_manager.cleanup_backup(Path(backup_path))
+                    else:
+                        console.print(
+                            f"  [red]Failed to restore from backup: {backup_path}[/red]"
+                        )
+                        fail_count += 1
+                else:
+                    console.print(
+                        f"  [cyan]Would restore from backup: {backup_path}[/cyan]"
+                    )
+            elif backup_path:
+                console.print(f"  [yellow]Backup not found: {backup_path}[/yellow]")
+
+    console.print("\n[bold]Rollback summary:[/bold]")
+    console.print(f"  Processed: {success_count}")
+    console.print(f"  Skipped: {skipped_count}")
+    console.print(f"  Failed: {fail_count}")
+
+    if not dry_run and success_count > 0:
+        history_manager.remove_deployment(deployment.deployment_id)
+        console.print(
+            "\n[green]Rollback complete! Deployment removed from history.[/green]"
+        )
+    elif dry_run:
+        console.print("\n[cyan]Dry run complete - no changes made[/cyan]")
+    else:
+        console.print("\n[yellow]Rollback complete with some failures.[/yellow]")

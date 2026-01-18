@@ -11,9 +11,13 @@ A modern, Pythonic dotfile manager that uses symbolic links and Jinja2 templates
 - **File Absorption** - Automatically absorb new files from target directories into your dotfiles repository
 - **Smart Template Handling** - Absorb skips template outputs to avoid duplicates
 - **Strict Dependency Enforcement** - Dependencies must be defined in config.yaml and enabled in local.yaml with clear error messages
+- **Circular Dependency Detection** - Detects and prevents circular dependencies between packages with clear error messages
 - **Machine-Specific Settings** - Override configurations per machine with local.yaml
 - **Dry-Run Mode** - Preview changes before applying them
 - **Rich Output** - Beautiful terminal output with status tables and color-coded feedback
+- **Hooks System** - Execute shell commands before and after deployments with template support
+- **Deployment History** - Track all deployments with unique IDs for auditing
+- **Rollback Support** - Restore previous deployments from history
 
 ## Quick Start
 
@@ -128,6 +132,8 @@ packages:
 | `dotman status [packages]`   | Show status of deployed dotfiles               |
 | `dotman list`                | List all available packages                    |
 | `dotman absorb [packages]`   | Absorb unmanaged files from target directories |
+| `dotman history [--limit]`   | Show deployment history                        |
+| `dotman rollback [id]`       | Rollback a deployment by ID                    |
 
 ### Options
 
@@ -234,6 +240,246 @@ packages:
 
 When absorbing files, dotman automatically skips files that are template outputs. If a `.j2` template exists in your source (e.g., `config.conf.j2`), the rendered file in the target (e.g., `config.conf`) will not be absorbed to avoid duplicates.
 
+## Hooks System
+
+Dotman supports executing shell commands before and after deployments via a hooks system.
+
+### Hook Types
+
+- **pre_deploy** - Commands executed before deploying a package's files
+- **post_deploy** - Commands executed after deploying a package's files
+
+### Configuration
+
+Define hooks in your package configuration:
+
+```yaml
+packages:
+  nvim:
+    depends: []
+    files:
+      - source: "nvim"
+        target: "~/.config/nvim"
+    hooks:
+      pre_deploy:
+        - "echo 'Starting neovim deployment'"
+        - "mkdir -p ~/.config/nvim"
+      post_deploy:
+        - "echo 'Neovim deployment complete'"
+        - "nvim --headless -c 'PlugInstall --sync' -c 'qall'"
+```
+
+### Template Variables in Hooks
+
+Hook commands support Jinja2 template rendering with the following special variables:
+
+- `{{package_name}}` - Name of the current package
+- `{{dotfiles_dir}}` - Path to your dotfiles repository
+- `{{target_dir}}` - Path to the target directory for the package
+- `{{variable_name}}` - Any variables defined in your configuration
+
+### Hook Examples
+
+**Using package variables:**
+
+```yaml
+packages:
+  nvim:
+    variables:
+      theme: "dracula"
+    hooks:
+      post_deploy:
+        - "echo 'Theme set to {{theme}}'"
+```
+
+**Conditional execution with Jinja2:**
+
+```yaml
+packages:
+  nvim:
+    variables:
+      debug: true
+    hooks:
+      pre_deploy:
+        - "{% if debug %}echo 'Debug mode enabled'{% endif %}"
+```
+
+**Executing in target directory:**
+
+```yaml
+packages:
+  myconfig:
+    files:
+      - source: "config"
+        target: "~/.myconfig"
+    hooks:
+      post_deploy:
+        - "{{dotfiles_dir}}/scripts/reload-config.sh"
+```
+
+### Hook Execution Behavior
+
+- Hooks run in the order they are defined
+- If a pre_deploy hook fails, deployment is aborted
+- post_deploy hooks run even if file deployment has issues
+- Commands are executed via shell, supporting pipes, redirects, and shell features
+- Failed hooks raise a `HookExecutionError` with exit code and output details
+
+### Dry Run and Hooks
+
+When running with `--dry-run`, hooks are not executed (only displayed in the execution plan).
+
+## Dependency Management
+
+Define dependencies between packages to ensure correct deployment order.
+
+### Basic Dependencies
+
+```yaml
+packages:
+  base:
+    files:
+      - source: "base/files"
+        target: "~/.config/base"
+
+  nvim:
+    depends: ["base"]
+    files:
+      - source: "nvim"
+        target: "~/.config/nvim"
+```
+
+When deploying `nvim`, dotman will automatically deploy `base` first.
+
+### Dependency Requirements
+
+- All dependencies must be defined in `config.yaml`
+- All dependencies must be enabled in `local.yaml`
+- Dependencies are deployed in topological order (dependencies before dependents)
+
+## Circular Dependency Detection
+
+Dotman automatically detects circular dependencies between packages and prevents deployment with a clear error message.
+
+Example circular dependency configuration (this will fail):
+
+```yaml
+packages:
+  a:
+    depends: ["b"]
+    files:
+      - source: "a"
+        target: "~/.a"
+
+  b:
+    depends: ["a"]
+    files:
+      - source: "b"
+        target: "~/.b"
+```
+
+When you try to deploy, you'll see:
+
+```
+Dependency error: Circular dependency detected: a -> b -> a
+```
+
+To fix, remove one of the dependency relationships.
+
+## Deployment History
+
+Dotman tracks all deployments in `.dotman/history.yaml` with unique deployment IDs.
+
+### Viewing History
+
+```bash
+# View last 10 deployments (default)
+dotman history
+
+# View last 5 deployments
+dotman history --limit 5
+```
+
+The history shows:
+- **ID** - Unique deployment identifier (use for rollback)
+- **Timestamp** - When the deployment occurred
+- **Packages** - Which packages were deployed
+- **Files** - Number of files processed
+- **Type** - "Live" or "Dry Run"
+
+### Deployment IDs
+
+Each deployment gets a unique 8-character ID (UUID prefix) that you can use for rollback:
+
+```bash
+dotman history
+# Example output:
+# ID          Timestamp           Packages    Files    Type
+# a1b2c3d4    2024-01-15 10:30    nvim, bash  15       Live
+# e5f6g7h8    2024-01-14 09:15    vim         8        Live
+```
+
+## Rollback
+
+Undo a previous deployment by restoring files from backups.
+
+### Basic Rollback
+
+```bash
+# Rollback the most recent deployment
+dotman rollback
+
+# Rollback a specific deployment by ID
+dotman rollback a1b2c3d4
+
+# Preview rollback without making changes
+dotman rollback --dry-run
+```
+
+### What Rollback Does
+
+1. Removes symlinks created during the deployment
+2. Restores original files from backups (if available)
+3. Removes rendered template files
+4. Removes the deployment from history
+
+### Rollback Summary
+
+After rollback, you'll see a summary:
+
+```
+Rollback summary:
+  Processed: 15
+  Skipped: 2
+  Failed: 0
+```
+
+- **Processed** - Files successfully removed/restored
+- **Skipped** - Files already removed (not present)
+- **Failed** - Files that couldn't be restored
+
+### Rollback Limitations
+
+- Cannot rollback dry-run deployments (no changes were made)
+- Backup files are cleaned up after successful restoration
+- Rollback only affects files from the specified deployment
+- Files created after the deployment will not be affected
+
+### Example Workflow
+
+```bash
+# Deploy some packages
+dotman deploy nvim vim
+
+# Check history to get the deployment ID
+dotman history
+# ID: x9y8z7w6
+
+# Oops, something went wrong!
+# Rollback to restore previous state
+dotman rollback x9y8z7w6
+```
+
 ## Architecture
 
 ```
@@ -246,13 +492,19 @@ dotman/
 │       ├── config.py           # Configuration loading and validation
 │       ├── link_manager.py     # Symlink creation and management
 │       ├── template_engine.py  # Jinja2 template rendering
+│       ├── hook_executor.py    # Hook execution for shell commands
+│       ├── history.py          # Deployment history tracking
 │       └── exceptions.py       # Custom exceptions
 ├── tests/                      # Test suite
 │   ├── __init__.py
 │   ├── test_config.py
 │   ├── test_link_manager.py
 │   ├── test_template_engine.py
-│   └── test_exceptions.py
+│   ├── test_exceptions.py
+│   ├── test_hooks.py
+│   ├── test_cli_deploy.py
+│   ├── test_cli_status.py
+│   └── ...
 ├── pyproject.toml              # Project configuration
 ├── README.md                   # This file
 ├── AGENTS.md                   # Guidelines for AI agents
@@ -265,6 +517,8 @@ dotman/
 - **Dry-Run Mode** - Preview all operations before execution
 - **Status Checking** - Detects broken, missing, and conflicting symlinks
 - **Confirmation Prompts** - Destructive operations can require confirmation
+- **Deployment History** - Track all changes with unique IDs
+- **Rollback Support** - Restore previous deployments from history
 
 ## Contributing
 
