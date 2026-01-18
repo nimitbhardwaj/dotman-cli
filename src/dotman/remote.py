@@ -7,6 +7,7 @@ from typing import cast
 from pydantic import BaseModel
 
 from dotman.exceptions import (
+    NothingToCommitError,
     RemoteAuthenticationError,
     RemoteCloneError,
     RemoteFetchError,
@@ -36,19 +37,21 @@ class RemoteManager:
         args: list[str],
         cwd: Path | None = None,
         capture_output: bool = True,
-    ) -> subprocess.CompletedProcess:
+        check: bool = True,
+    ) -> subprocess.CompletedProcess | subprocess.CalledProcessError:
         """Run a git command.
 
         Args:
             args: Git command arguments
             cwd: Working directory (defaults to repo_dir)
             capture_output: Whether to capture stdout/stderr
+            check: Whether to raise on non-zero exit code
 
         Returns:
             CompletedProcess result
 
         Raises:
-            RemoteCloneError: If the git command fails
+            RemoteCloneError: If the git command fails and check is True
         """
         cwd = cwd or self.repo_dir
         try:
@@ -57,11 +60,13 @@ class RemoteManager:
                 cwd=cwd,
                 capture_output=capture_output,
                 text=True,
-                check=True,
+                check=check,
             )
             return result
         except subprocess.CalledProcessError as e:
-            raise RemoteCloneError(f"Git command failed: {e.stderr}") from e
+            if check:
+                raise RemoteCloneError(f"Git command failed: {e.stderr}") from e
+            return e
 
     def _format_repo_url(self, url: str, auth_token: str | None = None) -> str:
         """Format repository URL for cloning.
@@ -275,6 +280,55 @@ class RemoteManager:
             path: Path to initialize
         """
         self._run_git_command(["init"])
+
+    def stage_all(self) -> None:
+        """Stage all changes in the repository.
+
+        Raises:
+            RemoteCloneError: If staging fails
+        """
+        self._run_git_command(["add", "-A"])
+
+    def commit(self, message: str) -> None:
+        """Commit staged changes.
+
+        Args:
+            message: Commit message
+
+        Raises:
+            NothingToCommitError: If there are no staged changes to commit
+            RemoteCloneError: If commit fails for other reasons
+        """
+        try:
+            self._run_git_command(["commit", "-m", message])
+        except RemoteCloneError as e:
+            if "nothing to commit" in str(e).lower():
+                raise NothingToCommitError("No changes to commit") from e
+            raise
+
+    def has_staged_changes(self) -> bool:
+        """Check if there are staged changes.
+
+        Returns:
+            True if there are staged changes, False otherwise
+        """
+        try:
+            self._run_git_command(["diff", "--cached", "--quiet"], check=False)
+            return False
+        except RemoteCloneError:
+            return True
+
+    def has_unstaged_changes(self) -> bool:
+        """Check if there are unstaged changes.
+
+        Returns:
+            True if there are unstaged changes, False otherwise
+        """
+        try:
+            self._run_git_command(["diff", "--quiet"], check=False)
+            return False
+        except RemoteCloneError:
+            return True
 
     def add_remote(self, name: str, url: str) -> None:
         """Add a remote to the repository.
