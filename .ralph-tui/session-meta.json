@@ -1,15 +1,15 @@
 {
-  "id": "5aebf39b-5b2a-4d22-9508-b2d30ad428a8",
+  "id": "6e6c2507-2595-4a93-9f20-c9758440db19",
   "status": "completed",
-  "startedAt": "2026-01-18T12:25:12.791Z",
-  "updatedAt": "2026-01-18T15:08:07.541Z",
+  "startedAt": "2026-01-18T16:28:56.004Z",
+  "updatedAt": "2026-01-18T16:37:17.084Z",
   "agentPlugin": "opencode",
   "trackerPlugin": "beads",
-  "epicId": "dotman-nln",
-  "currentIteration": 16,
+  "epicId": "dotman-tvn",
+  "currentIteration": 2,
   "maxIterations": 10,
   "totalTasks": 0,
-  "tasksCompleted": 16,
+  "tasksCompleted": 2,
   "cwd": "/Users/nimitbhardwaj/Programs/Projects/dotman",
-  "endedAt": "2026-01-18T12:25:21.960Z"
+  "endedAt": "2026-01-18T16:37:17.084Z"
 }

@@ -682,3 +682,178 @@ class TestCacheStateDetection:
 
         cached = engine._cache[template_file]
         assert before_render <= cached.rendered_at <= after_render
+
+    def test_cache_statistics_tracking(self):
+        """Test that cache statistics are properly tracked."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        stats_before = engine.get_cache_statistics()
+        assert stats_before.hits == 0
+        assert stats_before.misses == 0
+        assert stats_before.renders == 0
+
+        engine.render_file(template_file, {"name": "World"})
+
+        stats_after_render = engine.get_cache_statistics()
+        assert stats_after_render.renders == 1
+
+        engine.render_file(template_file, {"name": "World"})
+
+        stats_after_second_render = engine.get_cache_statistics()
+        assert stats_after_second_render.hits == 1
+        assert stats_after_second_render.misses == 1
+
+    def test_cache_hit_rate_calculation(self):
+        """Test cache hit rate calculation."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"})
+        engine.render_file(template_file, {"name": "World"})
+        engine.render_file(template_file, {"name": "World"})
+
+        stats = engine.get_cache_statistics()
+        assert stats.hits == 2
+        assert stats.misses == 1
+        assert abs(stats.hit_rate - 2 / 3) < 0.01
+
+    def test_cache_access_tracking(self):
+        """Test that cache access counts are tracked."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"})
+        engine.render_file(template_file, {"name": "World"})
+
+        cached = engine._cache[template_file]
+        assert cached.access_count == 2
+
+    def test_get_cache_info(self):
+        """Test getting comprehensive cache information."""
+        engine = TemplateEngine(self.template_dir)
+        template_file1 = self.template_dir / "template1.j2"
+        template_file2 = self.template_dir / "template2.j2"
+        template_file1.write_text("Hello {{ name }}!")
+        template_file2.write_text("Goodbye {{ name }}!")
+
+        engine.render_file(template_file1, {"name": "World"})
+        engine.render_file(template_file2, {"name": "World"})
+
+        info = engine.get_cache_info()
+
+        assert info["cache_size"] == 2
+        assert len(info["entries"]) == 2
+        assert "statistics" in info
+
+    def test_most_accessed_templates(self):
+        """Test getting most accessed templates."""
+        engine = TemplateEngine(self.template_dir)
+        template_file1 = self.template_dir / "template1.j2"
+        template_file2 = self.template_dir / "template2.j2"
+        template_file1.write_text("Hello {{ name }}!")
+        template_file2.write_text("Goodbye {{ name }}!")
+
+        engine.render_file(template_file1, {"name": "World"})
+        engine.render_file(template_file1, {"name": "World"})
+        engine.render_file(template_file2, {"name": "World"})
+
+        most_accessed = engine.get_most_accessed_templates(limit=1)
+
+        assert len(most_accessed) == 1
+        assert most_accessed[0][0] == template_file1
+        assert most_accessed[0][1] == 1
+
+    def test_oldest_templates(self):
+        """Test getting oldest rendered templates."""
+        import time
+
+        engine = TemplateEngine(self.template_dir)
+        template_file1 = self.template_dir / "template1.j2"
+        template_file2 = self.template_dir / "template2.j2"
+        template_file1.write_text("Hello {{ name }}!")
+        template_file2.write_text("Goodbye {{ name }}!")
+
+        engine.render_file(template_file1, {"name": "World"})
+        time.sleep(0.01)
+        engine.render_file(template_file2, {"name": "World"})
+
+        oldest = engine.get_oldest_templates(limit=1)
+
+        assert len(oldest) == 1
+        assert oldest[0][0] == template_file1
+
+    def test_clear_statistics(self):
+        """Test clearing cache statistics."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"})
+        engine.render_file(template_file, {"name": "World"})
+
+        engine.clear_statistics()
+
+        stats = engine.get_cache_statistics()
+        assert stats.hits == 0
+        assert stats.misses == 0
+        assert stats.renders == 0
+
+    def test_invalidate_cache_by_pattern(self):
+        """Test invalidating cache by glob pattern."""
+        engine = TemplateEngine(self.template_dir)
+        template_file1 = self.template_dir / "template1.j2"
+        template_file2 = self.template_dir / "template2.j2"
+        template_file1.write_text("Hello {{ name }}!")
+        template_file2.write_text("Goodbye {{ name }}!")
+
+        engine.render_file(template_file1, {"name": "World"})
+        engine.render_file(template_file2, {"name": "World"})
+
+        count = engine.invalidate_cache_by_pattern("template1.j2")
+
+        assert count == 1
+        assert len(engine._cache) == 1
+        assert template_file2 in engine._cache
+        assert template_file1 not in engine._cache
+
+    def test_invalidate_cache_by_directory(self):
+        """Test invalidating cache by directory."""
+        engine = TemplateEngine(self.template_dir)
+        subdir = self.template_dir / "subdir"
+        subdir.mkdir()
+
+        template_file1 = self.template_dir / "template1.j2"
+        template_file2 = subdir / "template2.j2"
+        template_file1.write_text("Hello {{ name }}!")
+        template_file2.write_text("Goodbye {{ name }}!")
+
+        engine.render_file(template_file1, {"name": "World"})
+        engine.render_file(template_file2, {"name": "World"})
+
+        count = engine.invalidate_cache_by_directory(self.template_dir)
+
+        assert count == 2
+        assert len(engine._cache) == 0
+
+    def test_cache_statistics_to_dict(self):
+        """Test cache statistics serialization to dictionary."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"})
+        engine.render_file(template_file, {"name": "World"})
+
+        stats = engine.get_cache_statistics()
+        stats_dict = stats.to_dict()
+
+        assert "hits" in stats_dict
+        assert "misses" in stats_dict
+        assert "hit_rate" in stats_dict
+        assert "miss_rate" in stats_dict
+        assert stats_dict["hits"] == 1
+        assert stats_dict["misses"] == 1

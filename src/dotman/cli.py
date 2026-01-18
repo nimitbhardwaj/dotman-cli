@@ -401,7 +401,7 @@ def deploy(
         console.print(f"[red]Dependency error:[/red] {e}")
         raise typer.Exit(1)
 
-    packages_to_deploy = packages or config.get_enabled_packages()
+    packages_to_deploy = config.get_packages_in_deployment_order(packages)
 
     if not packages_to_deploy:
         console.print(
@@ -603,7 +603,7 @@ def undeploy(
         console.print(f"[red]Dependency error:[/red] {e}")
         raise typer.Exit(1)
 
-    packages_to_undeploy = packages or config.get_enabled_packages()
+    packages_to_undeploy = config.get_packages_in_undeployment_order(packages)
 
     if not packages_to_undeploy:
         console.print("[yellow]No packages to undeploy.[/yellow]")
