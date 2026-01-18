@@ -746,6 +746,72 @@ dotman/
 - **Deployment History** - Track all changes with unique IDs
 - **Rollback Support** - Restore previous deployments from history
 
+## Error Handling
+
+Dotman uses a hierarchical exception system for clear and actionable error messages. All custom exceptions inherit from `DotmanError`.
+
+### Exception Hierarchy
+
+| Exception | Description |
+|-----------|-------------|
+| **DotmanError** | Base exception for all dotman errors |
+| **ConfigError** | Configuration-related errors |
+| ├─ ConfigNotFoundError | Configuration file not found |
+| ├─ ConfigParseError | Error parsing configuration file |
+| ├─ ConfigIncludeError | Error including configuration file |
+| └─ CircularIncludeError | Circular reference in includes |
+| **LinkError** | Symlink-related errors |
+| ├─ LinkExistsError | Target already exists |
+| └─ LinkTargetMissingError | Source file missing |
+| **TemplateError** | Template-related errors |
+| └─ TemplateRenderError | Error rendering template |
+| **PackageError** | Package-related errors |
+| ├─ PackageNotFoundError | Package not in config |
+| └─ DependencyError | Dependency resolution errors |
+| ├─ MissingDependencyError | Required dependency missing |
+| └─ CircularDependencyError | Circular dependency detected |
+| **HookError** | Hook-related errors |
+| └─ HookExecutionError | Error executing hook |
+| **HistoryError** | History-related errors |
+| **RollbackError** | Rollback-related errors |
+| **RemoteError** | Remote repository errors |
+| ├─ RemoteCloneError | Error cloning repository |
+| ├─ RemoteFetchError | Error fetching from remote |
+| ├─ RemoteNotFoundError | Repository not found |
+| ├─ RemoteAuthenticationError | Authentication failed |
+| └─ RemotePushError | Error pushing to remote |
+| **WatcherError** | File watcher errors |
+| ├─ WatcherBackendError | Watcher backend error |
+| └─ WatcherInitializationError | Watcher init failed |
+| **RepositoryError** | Repository management errors |
+| ├─ RepositoryNotFoundError | Repository not in registry |
+| ├─ RepositoryAlreadyExistsError | Repository already exists |
+| ├─ RepositoryPathError | Invalid repository path |
+| └─ NothingToCommitError | No changes to commit |
+
+### Catching Exceptions
+
+All dotman exceptions can be caught as `DotmanError`:
+
+```python
+from dotman.exceptions import DotmanError
+
+try:
+    dotman.deploy()
+except DotmanError as e:
+    print(f"Error: {e}")
+```
+
+### Error Messages
+
+Exception messages are designed to be user-friendly and actionable:
+
+```
+ConfigNotFoundError: Configuration file not found: /path/to/config.yaml
+CircularDependencyError: Circular dependency detected: a -> b -> a
+NothingToCommitError: No changes to commit in repository 'dotfiles'
+```
+
 ## Contributing
 
 1. Fork the repository
