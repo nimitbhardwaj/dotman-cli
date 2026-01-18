@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "sessionId": "bdd7449b-f59b-4bb9-827f-7a4b2216b181",
+  "status": "running",
+  "startedAt": "2026-01-18T13:42:08.379Z",
+  "updatedAt": "2026-01-18T15:08:08.716Z",
+  "currentIteration": 16,
+  "maxIterations": 10,
+  "tasksCompleted": 16,
+  "isPaused": false,
+  "agentPlugin": "opencode",
+  "trackerState": {
+    "plugin": "beads",
+    "epicId": "dotman-tvn",
+    "totalTasks": 13,
+    "tasks": [
+      {
+        "id": "dotman-tvn.1",
+        "title": "US-001: Implement YAML include system",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.12",
+        "title": "US-012: Implement template caching",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.10",
+        "title": "US-010: Add push/pull commands",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.9",
+        "title": "US-009: Add remote repository support",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.2",
+        "title": "US-002: Implement configuration merging with precedence",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.13",
+        "title": "US-013: Add cache state detection and invalidation",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.11",
+        "title": "US-011: Add multiple repository support",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.8",
+        "title": "US-008: Add debounced deployment",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.7",
+        "title": "US-007: Add dotman watch command",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.6",
+        "title": "US-006: Implement file system watcher abstraction",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.3",
+        "title": "US-003: Add OS-specific configuration includes",
+        "status": "completed",
+        "completedInSession": true
+      },
+      {
+        "id": "dotman-tvn.5",
+        "title": "US-005: Add circular dependency detection",
+        "status": "open",
+        "completedInSession": false
+      },
+      {
+        "id": "dotman-tvn.4",
+        "title": "US-004: Implement dependency resolution with topological sort",
+        "status": "open",
+        "completedInSession": false
+      }
+    ]
+  },
+  "iterations": [
+    {
+      "iteration": 1,
+      "status": "completed",
+      "taskId": "dotman-tvn.1",
+      "taskTitle": "US-001: Implement YAML include system",
+      "taskCompleted": true,
+      "durationMs": 322250,
+      "startedAt": "2026-01-18T13:42:23.784Z",
+      "endedAt": "2026-01-18T13:47:46.034Z"
+    },
+    {
+      "iteration": 2,
+      "status": "completed",
+      "taskId": "dotman-tvn.2",
+      "taskTitle": "US-002: Implement configuration merging with precedence",
+      "taskCompleted": true,
+      "durationMs": 925798,
+      "startedAt": "2026-01-18T13:47:47.429Z",
+      "endedAt": "2026-01-18T14:03:13.227Z"
+    },
+    {
+      "iteration": 3,
+      "status": "completed",
+      "taskId": "dotman-tvn.9",
+      "taskTitle": "US-009: Add remote repository support",
+      "taskCompleted": true,
+      "durationMs": 447362,
+      "startedAt": "2026-01-18T14:03:14.610Z",
+      "endedAt": "2026-01-18T14:10:41.972Z"
+    },
+    {
+      "iteration": 4,
+      "status": "completed",
+      "taskId": "dotman-tvn.10",
+      "taskTitle": "US-010: Add push/pull commands",
+      "taskCompleted": true,
+      "durationMs": 311475,
+      "startedAt": "2026-01-18T14:10:43.319Z",
+      "endedAt": "2026-01-18T14:15:54.794Z"
+    },
+    {
+      "iteration": 5,
+      "status": "completed",
+      "taskId": "dotman-tvn.12",
+      "taskTitle": "US-012: Implement template caching",
+      "taskCompleted": true,
+      "durationMs": 151985,
+      "startedAt": "2026-01-18T14:15:56.060Z",
+      "endedAt": "2026-01-18T14:18:28.045Z"
+    },
+    {
+      "iteration": 6,
+      "status": "completed",
+      "taskId": "dotman-tvn.3",
+      "taskTitle": "US-003: Add OS-specific configuration includes",
+      "taskCompleted": true,
+      "durationMs": 162919,
+      "startedAt": "2026-01-18T14:18:29.347Z",
+      "endedAt": "2026-01-18T14:21:12.266Z"
+    },
+    {
+      "iteration": 7,
+      "status": "completed",
+      "taskId": "dotman-tvn.6",
+      "taskTitle": "US-006: Implement file system watcher abstraction",
+      "taskCompleted": true,
+      "durationMs": 862671,
+      "startedAt": "2026-01-18T14:21:13.539Z",
+      "endedAt": "2026-01-18T14:35:36.210Z"
+    },
+    {
+      "iteration": 8,
+      "status": "completed",
+      "taskId": "dotman-tvn.7",
+      "taskTitle": "US-007: Add dotman watch command",
+      "taskCompleted": true,
+      "durationMs": 477239,
+      "startedAt": "2026-01-18T14:35:37.483Z",
+      "endedAt": "2026-01-18T14:43:34.722Z"
+    },
+    {
+      "iteration": 9,
+      "status": "completed",
+      "taskId": "dotman-tvn.8",
+      "taskTitle": "US-008: Add debounced deployment",
+      "taskCompleted": true,
+      "durationMs": 163798,
+      "startedAt": "2026-01-18T14:43:35.985Z",
+      "endedAt": "2026-01-18T14:46:19.783Z"
+    },
+    {
+      "iteration": 10,
+      "status": "completed",
+      "taskId": "dotman-tvn.11",
+      "taskTitle": "US-011: Add multiple repository support",
+      "taskCompleted": true,
+      "durationMs": 467744,
+      "startedAt": "2026-01-18T14:46:21.021Z",
+      "endedAt": "2026-01-18T14:54:08.765Z"
+    },
+    {
+      "iteration": 11,
+      "status": "completed",
+      "taskId": "dotman-tvn.13",
+      "taskTitle": "US-013: Add cache state detection and invalidation",
+      "taskCompleted": true,
+      "durationMs": 224957,
+      "startedAt": "2026-01-18T14:54:10.047Z",
+      "endedAt": "2026-01-18T14:57:55.004Z"
+    },
+    {
+      "iteration": 12,
+      "status": "completed",
+      "taskId": "dotman-tvn.13",
+      "taskTitle": "US-013: Add cache state detection and invalidation",
+      "taskCompleted": true,
+      "durationMs": 110050,
+      "startedAt": "2026-01-18T14:57:56.200Z",
+      "endedAt": "2026-01-18T14:59:46.250Z"
+    },
+    {
+      "iteration": 13,
+      "status": "completed",
+      "taskId": "dotman-tvn.13",
+      "taskTitle": "US-013: Add cache state detection and invalidation",
+      "taskCompleted": true,
+      "durationMs": 67908,
+      "startedAt": "2026-01-18T14:59:47.422Z",
+      "endedAt": "2026-01-18T15:00:55.330Z"
+    },
+    {
+      "iteration": 14,
+      "status": "completed",
+      "taskId": "dotman-tvn.13",
+      "taskTitle": "US-013: Add cache state detection and invalidation",
+      "taskCompleted": true,
+      "durationMs": 170075,
+      "startedAt": "2026-01-18T15:00:56.506Z",
+      "endedAt": "2026-01-18T15:03:46.581Z"
+    },
+    {
+      "iteration": 15,
+      "status": "completed",
+      "taskId": "dotman-tvn.13",
+      "taskTitle": "US-013: Add cache state detection and invalidation",
+      "taskCompleted": true,
+      "durationMs": 91085,
+      "startedAt": "2026-01-18T15:03:47.801Z",
+      "endedAt": "2026-01-18T15:05:18.886Z"
+    },
+    {
+      "iteration": 16,
+      "status": "completed",
+      "taskId": "dotman-tvn.13",
+      "taskTitle": "US-013: Add cache state detection and invalidation",
+      "taskCompleted": true,
+      "durationMs": 167277,
+      "startedAt": "2026-01-18T15:05:20.155Z",
+      "endedAt": "2026-01-18T15:08:07.432Z"
+    }
+  ],
+  "skippedTaskIds": [],
+  "cwd": "/Users/nimitbhardwaj/Programs/Projects/dotman",
+  "activeTaskIds": [
+    "dotman-tvn.13"
+  ],
+  "subagentPanelVisible": false
+}

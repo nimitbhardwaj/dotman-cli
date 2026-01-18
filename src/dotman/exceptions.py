@@ -179,3 +179,27 @@ class WatcherInitializationError(WatcherError):
     """Error initializing file system watcher."""
 
     pass
+
+
+class RepositoryError(DotmanError):
+    """Repository-related errors."""
+
+    pass
+
+
+class RepositoryNotFoundError(RepositoryError):
+    """Repository not found in registry."""
+
+    pass
+
+
+class RepositoryAlreadyExistsError(RepositoryError):
+    """Repository already exists in registry."""
+
+    pass
+
+
+class RepositoryPathError(RepositoryError):
+    """Invalid repository path."""
+
+    pass

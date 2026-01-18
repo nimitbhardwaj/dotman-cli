@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -154,8 +155,6 @@ class TemplateEngine:
                 output.write_text(rendered)
 
             if not is_valid or output is None:
-                import time
-
                 self._cache[source] = RenderedTemplate(
                     content=rendered,
                     source_mtime=self._get_source_mtime(source),

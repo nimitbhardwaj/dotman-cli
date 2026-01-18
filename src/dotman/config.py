@@ -12,6 +12,7 @@ from dotman.exceptions import (
     ConfigParseError,
     MissingDependencyError,
 )
+from dotman.repository import RepoManager, RepositoryConfig
 
 
 class FileMapping(BaseModel):
@@ -64,18 +65,52 @@ class LocalConfig(BaseModel):
     file_overrides: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
+def get_repo_manager(registry_dir: Path | None = None) -> RepoManager:
+    """Get the repository manager instance.
+
+    Args:
+        registry_dir: Optional custom registry directory
+
+    Returns:
+        RepoManager instance
+    """
+    return RepoManager(registry_dir)
+
+
+def get_config_for_repo(
+    repo_name: str | None = None, registry_dir: Path | None = None
+) -> tuple["Config", RepositoryConfig]:
+    """Get a Config instance for a specific repository.
+
+    Args:
+        repo_name: Repository name or None for default repository
+        registry_dir: Optional custom registry directory
+
+    Returns:
+        Tuple of (Config, RepositoryConfig)
+
+    Raises:
+        RepositoryNotFoundError: If the repository is not found
+    """
+    repo_manager = get_repo_manager(registry_dir)
+    repo_config = repo_manager.get_repository(repo_name)
+    return Config(repo_config.path), repo_config
+
+
 class Config:
     """Main configuration class that merges global and local configs."""
 
-    def __init__(self, repo_dir: Path | None = None):
+    def __init__(self, repo_dir: Path | None = None, repo_name: str | None = None):
         """Initialize config for a dotfiles repository.
 
         Args:
             repo_dir: The dotfiles repository directory.
             Defaults to current working directory.
                       Config files are stored in repo_dir/.dotman/
+            repo_name: Optional name of the repository (for display purposes)
         """
         self.repo_dir = repo_dir or Path.cwd()
+        self.repo_name = repo_name
         self.dotman_dir = self.repo_dir / ".dotman"
         self.config_path = self.dotman_dir / "config.yaml"
         self.local_config_path = self.dotman_dir / "local.yaml"

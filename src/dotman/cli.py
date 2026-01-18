@@ -2,7 +2,10 @@
 
 import os
 import re
+import signal
+import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -10,7 +13,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from dotman.config import Config
+from dotman.config import Config, get_repo_manager
 from dotman.exceptions import (
     DotmanError,
     HookExecutionError,
@@ -22,17 +25,23 @@ from dotman.exceptions import (
     RemoteFetchError,
     RemoteNotFoundError,
     RemotePushError,
+    RepositoryNotFoundError,
 )
 from dotman.history import DeployedFile, HistoryManager
 from dotman.hook_executor import HookExecutor
 from dotman.link_manager import LinkManager, LinkStatus
 from dotman.remote import RemoteManager, detect_remote_from_string
 from dotman.template_engine import TemplateEngine
-from dotman.watcher import WatchEvent, WatchEventType
+from dotman.watcher import WatchEvent, WatchEventType, create_watcher
 
 app = typer.Typer(
     name="dotman",
     help="A dotfile manager for symlinks and templates.",
+    no_args_is_help=True,
+)
+repo_app = typer.Typer(
+    name="repo",
+    help="Manage multiple dotfiles repositories.",
     no_args_is_help=True,
 )
 console = Console()
@@ -42,25 +51,50 @@ def get_config(
     config_dir: Path | None = None,
     backup_dir: str | None = None,
     template_suffix: str | None = None,
+    repo_name: str | None = None,
 ) -> Config:
     """Get the configuration instance."""
     if config_dir is None:
         if os.environ.get("DOTMAN_CONFIG_DIR"):
             config_dir = Path(os.environ["DOTMAN_CONFIG_DIR"])
 
+    if repo_name is not None:
+        repo_manager = get_repo_manager()
+        repo_config = repo_manager.get_repository(repo_name)
+        config_dir = repo_config.path
+
     repo_dir = config_dir if config_dir is not None else Path.cwd()
 
-    return Config(repo_dir)
+    return Config(repo_dir, repo_name=repo_name)
+
+
+def get_repository_option() -> Annotated[
+    str | None,
+    typer.Option(
+        "--repo", "-r", help="Repository name (uses default if not specified)"
+    ),
+]:
+    """Repository option for CLI commands."""
+    return None
 
 
 @app.command()
-def init() -> None:
+def init(
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name for registration"),
+    ] = None,
+    config_dir: Annotated[
+        Path | None,
+        typer.Option("--config-dir", "-c", help="The path of config directory"),
+    ] = None,
+) -> None:
     """Initialize dotman configuration in the current directory.
 
     Creates a .dotman/ folder with global.yaml and local.yaml configs.
     Run this from your dotfiles repository root.
     """
-    config = get_config()
+    config = get_config(config_dir=config_dir)
 
     if config.is_initialized():
         console.print("[yellow]Dotman is already initialized.[/yellow]")
@@ -74,6 +108,27 @@ def init() -> None:
     console.print(f"Config directory: {config.dotman_dir}")
     console.print(f"Config: {config.config_path}")
     console.print(f"Local config: {config.local_config_path}")
+
+    if repo_name:
+        try:
+            repo_manager = get_repo_manager()
+            remote_manager = RemoteManager(config.repo_dir)
+            remote_url = (
+                remote_manager.get_remote_url("origin")
+                if remote_manager.is_git_repo()
+                else None
+            )
+            repo_manager.register_repository(
+                name=repo_name,
+                path=config.repo_dir,
+                remote_url=remote_url,
+                set_default=True,
+            )
+            console.print(f"[green]Registered repository as '{repo_name}'[/green]")
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning: Could not register repository: {e}[/yellow]"
+            )
 
 
 @app.command()
@@ -186,6 +241,10 @@ def push(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Push changes to the remote repository.
 
@@ -194,8 +253,9 @@ def push(
         dotman push origin
         dotman push origin main
         dotman push --set-upstream origin develop
+        dotman push --repo work
     """
-    config = get_config(config_dir)
+    config = get_config(config_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -245,6 +305,10 @@ def pull(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Pull changes from the remote repository.
 
@@ -252,8 +316,9 @@ def pull(
         dotman pull
         dotman pull origin
         dotman pull origin main
+        dotman pull --repo work
     """
-    config = get_config(config_dir)
+    config = get_config(config_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -313,9 +378,17 @@ def deploy(
         str | None,
         typer.Option("--template-suffix", help="Override template suffix"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Deploy dotfiles by creating symlinks."""
-    config = get_config(config_dir, backup_dir, template_suffix)
+    config = get_config(config_dir, backup_dir, template_suffix, repo_name)
+
+    if repo_name:
+        console.print(f"[cyan]Using repository: {repo_name}[/cyan]")
+        console.print(f"  Path: {config.repo_dir}\n")
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -510,9 +583,13 @@ def undeploy(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Remove deployed dotfile symlinks."""
-    config = get_config(config_dir, backup_dir)
+    config = get_config(config_dir, backup_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -579,9 +656,13 @@ def status(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Show status of deployed dotfiles."""
-    config = get_config(config_dir, backup_dir)
+    config = get_config(config_dir, backup_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -684,9 +765,13 @@ def list_packages(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """List all available packages."""
-    config = get_config(config_dir, backup_dir)
+    config = get_config(config_dir, backup_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -786,9 +871,13 @@ def absorb_changes(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Absorb changes from deployed dotfiles back into the dotfiles repository."""
-    config = get_config(config_dir, backup_dir)
+    config = get_config(config_dir, backup_dir, repo_name=repo_name)
     link_manager = LinkManager(config.backup_dir)
 
     if not config.is_initialized():
@@ -880,9 +969,13 @@ def show_history(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Show deployment history."""
-    config = get_config(config_dir, backup_dir)
+    config = get_config(config_dir, backup_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -938,9 +1031,13 @@ def rollback(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
     """Rollback a deployment by restoring from backup and removing symlinks."""
-    config = get_config(config_dir, backup_dir)
+    config = get_config(config_dir, backup_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -1094,24 +1191,13 @@ def watch(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    repo_name: Annotated[
+        str | None,
+        typer.Option("--repo", "-r", help="Repository name"),
+    ] = None,
 ) -> None:
-    """Watch for file changes and deploy automatically.
-
-    Continuously monitors the dotfiles directory and deploys changes
-    automatically. Use Ctrl+C to stop watching.
-
-    Examples:
-        dotman watch
-        dotman watch --debounce 2.0
-        dotman watch --once --dry-run
-    """
-    import signal
-    import time
-    from datetime import datetime
-
-    from dotman.watcher import create_watcher
-
-    config = get_config(config_dir, backup_dir)
+    """Watch for file changes and deploy automatically."""
+    config = get_config(config_dir, backup_dir, repo_name=repo_name)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -1257,3 +1343,203 @@ def watch(
     finally:
         watcher.close()
         console.print("\n[green]Watcher stopped.[/green]")
+
+
+@repo_app.command(name="add")
+def add_repository(
+    name: Annotated[
+        str,
+        typer.Argument(help="Unique name for the repository"),
+    ],
+    path: Annotated[
+        Path,
+        typer.Argument(help="Path to the dotfiles repository"),
+    ],
+    remote_url: Annotated[
+        str | None,
+        typer.Option("--url", "-u", help="Optional remote URL"),
+    ] = None,
+    description: Annotated[
+        str | None,
+        typer.Option("--desc", "-d", help="Optional description"),
+    ] = None,
+    set_default: Annotated[
+        bool,
+        typer.Option("--default", help="Set as the default repository"),
+    ] = False,
+) -> None:
+    """Register a dotfiles repository with dotman.
+
+    Examples:
+        dotman repo add work ~/dotfiles-work
+        dotman repo add personal ~/dotfiles --url https://github.com/user/dotfiles
+        dotman repo add work ~/dotfiles-work --default
+    """
+    repo_manager = get_repo_manager()
+
+    if not path.exists():
+        console.print(f"[red]Path does not exist: {path}[/red]")
+        raise typer.Exit(1)
+
+    try:
+        config = Config(path)
+        if not config.is_initialized():
+            console.print(
+                f"[yellow]Warning: {path} is not initialized with dotman.[/yellow]"
+            )
+            console.print("Run 'dotman init' in that directory first.")
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    try:
+        repo_manager.register_repository(
+            name=name,
+            path=path,
+            remote_url=remote_url,
+            description=description,
+            set_default=set_default,
+        )
+        console.print(f"[green]Repository '{name}' added successfully![/green]")
+        console.print(f"  Path: {path}")
+        if remote_url:
+            console.print(f"  Remote: {remote_url}")
+        if set_default or repo_manager.registry.default_repo == name:
+            console.print("  [cyan](default)[/cyan]")
+    except Exception as e:
+        console.print(f"[red]Error adding repository: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@repo_app.command(name="remove")
+def remove_repository(
+    name: Annotated[
+        str,
+        typer.Argument(help="Name of the repository to remove"),
+    ],
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Skip confirmation"),
+    ] = False,
+) -> None:
+    """Unregister a dotfiles repository from dotman.
+
+    Examples:
+        dotman repo remove work
+        dotman repo remove work --force
+    """
+    repo_manager = get_repo_manager()
+
+    repo = repo_manager.get_repository(name)
+    if not repo:
+        console.print(f"[red]Repository '{name}' not found.[/red]")
+        raise typer.Exit(1)
+
+    if not force:
+        console.print(f"Unregister repository '{name}'?")
+        console.print(f"  Path: {repo.path}")
+        if not typer.confirm("Continue?"):
+            raise typer.Exit(0)
+
+    if repo_manager.unregister_repository(name):
+        console.print(f"[green]Repository '{name}' removed.[/green]")
+    else:
+        console.print(f"[red]Failed to remove repository '{name}'.[/red]")
+        raise typer.Exit(1)
+
+
+@repo_app.command(name="list")
+def list_repositories() -> None:
+    """List all registered dotfiles repositories.
+
+    Examples:
+        dotman repo list
+    """
+    repo_manager = get_repo_manager()
+    repos = repo_manager.list_repositories()
+
+    if not repos:
+        console.print("[yellow]No repositories registered.[/yellow]")
+        console.print("Use 'dotman repo add <name> <path>' to add one.")
+        return
+
+    table = Table(title="Registered Repositories")
+    table.add_column("Name", style="cyan")
+    table.add_column("Path", style="white")
+    table.add_column("Remote", style="white")
+    table.add_column("Default", style="white")
+
+    for repo in repos:
+        default_mark = "[green]*[/green]" if repo.is_default else ""
+        remote = repo.remote_url or "-"
+        table.add_row(repo.name, str(repo.path), remote, default_mark)
+
+    console.print(table)
+    console.print("\n[dim]* = default repository[/dim]")
+
+
+@repo_app.command(name="default")
+def set_default_repository(
+    name: Annotated[
+        str,
+        typer.Argument(help="Name of the repository to set as default"),
+    ],
+) -> None:
+    """Set the default repository.
+
+    Examples:
+        dotman repo default work
+    """
+    repo_manager = get_repo_manager()
+
+    if repo_manager.set_default_repository(name):
+        console.print(f"[green]Default repository set to '{name}'.[/green]")
+    else:
+        console.print(f"[red]Repository '{name}' not found.[/red]")
+        raise typer.Exit(1)
+
+
+@repo_app.command(name="show")
+def show_repository(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Repository name (default: current/default)"),
+    ] = None,
+) -> None:
+    """Show details of a repository.
+
+    Examples:
+        dotman repo show
+        dotman repo show work
+    """
+    repo_manager = get_repo_manager()
+
+    try:
+        repo = repo_manager.get_repository(name)
+    except RepositoryNotFoundError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]Repository: {repo.name}[/bold]")
+    console.print(f"  Path: {repo.path}")
+    console.print(f"  Remote: {repo.remote_url or '(none)'}")
+    console.print(f"  Description: {repo.description or '(none)'}")
+    console.print(f"  Default: {'Yes' if repo.is_default else 'No'}")
+
+    config = Config(repo.path)
+    if config.is_initialized():
+        packages = config.global_config.packages
+        enabled = config.get_enabled_packages()
+        console.print(f"\n  Packages: {len(packages)} defined, {len(enabled)} enabled")
+        if packages:
+            console.print("  Defined packages:")
+            for pkg_name in list(packages.keys())[:5]:
+                enabled_mark = "[green]*[/green]" if pkg_name in enabled else ""
+                console.print(f"    - {pkg_name} {enabled_mark}")
+            if len(packages) > 5:
+                console.print(f"    ... and {len(packages) - 5} more")
+    else:
+        console.print("\n  [yellow]Not initialized with dotman[/yellow]")
+
+
+app.add_typer(repo_app)
