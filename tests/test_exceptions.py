@@ -12,8 +12,10 @@ from dotman.exceptions import (
     LinkExistsError,
     LinkTargetMissingError,
     MissingDependencyError,
+    NothingToCommitError,
     PackageError,
     PackageNotFoundError,
+    RepositoryError,
     TemplateError,
     TemplateRenderError,
 )
@@ -101,6 +103,12 @@ class TestExceptionHierarchy:
         assert isinstance(error, PackageError)
         assert isinstance(error, DotmanError)
 
+    def test_nothing_to_commit_error_inherits_from_repository(self):
+        """Test NothingToCommitError inherits from RepositoryError."""
+        error = NothingToCommitError("Nothing to commit")
+        assert isinstance(error, RepositoryError)
+        assert isinstance(error, DotmanError)
+
 
 class TestExceptionMessages:
     """Test exception error messages."""
@@ -134,6 +142,11 @@ class TestExceptionMessages:
         """Test TemplateRenderError message formatting."""
         error = TemplateRenderError("Variable 'unknown' is undefined")
         assert "Variable 'unknown' is undefined" in str(error)
+
+    def test_nothing_to_commit_error_message(self):
+        """Test NothingToCommitError message formatting."""
+        error = NothingToCommitError("No changes to commit")
+        assert "No changes to commit" in str(error)
 
 
 class TestExceptionCatching:
@@ -268,6 +281,13 @@ class TestExceptionUsage:
 
         assert "vim" in str(exc_info.value)
         assert "base" in str(exc_info.value)
+
+    def test_nothing_to_commit(self):
+        """Test NothingToCommitError when there are no changes to commit."""
+        with pytest.raises(NothingToCommitError) as exc_info:
+            raise NothingToCommitError("No changes to commit in repository 'dotfiles'")
+
+        assert "dotfiles" in str(exc_info.value)
 
 
 class TestExceptionProperties:

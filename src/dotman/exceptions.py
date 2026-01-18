@@ -203,3 +203,9 @@ class RepositoryPathError(RepositoryError):
     """Invalid repository path."""
 
     pass
+
+
+class NothingToCommitError(RepositoryError):
+    """No changes to commit in the repository."""
+
+    pass
