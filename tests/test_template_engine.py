@@ -450,3 +450,235 @@ class TestEdgeCases:
         result = engine.render_string(content, {"text": "Hello 世界 🌍"})
         assert "世界" in result
         assert "🌍" in result
+
+
+class TestCacheStateDetection:
+    """Test cache state detection and invalidation functionality."""
+
+    def setup_method(self):
+        """Set up test fixtures with temporary directory."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.template_dir = Path(self.temp_dir)
+
+    def teardown_method(self):
+        """Clean up temporary directory."""
+        import shutil
+
+        shutil.rmtree(self.temp_dir)
+
+    def test_get_cache_status_not_cached(self):
+        """Test cache status returns not_cached for uncached source."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        is_valid, reason = engine.get_cache_status(template_file, {"name": "World"})
+
+        assert is_valid is False
+        assert reason == "not_cached"
+
+    def test_get_cache_status_source_not_exists(self):
+        """Test cache status returns source_not_exists for missing source."""
+        engine = TemplateEngine(self.template_dir)
+        missing_file = self.template_dir / "missing.j2"
+
+        is_valid, reason = engine.get_cache_status(missing_file, {"name": "World"})
+
+        assert is_valid is False
+        assert reason == "source_not_exists"
+
+    def test_cache_after_render(self):
+        """Test that rendering caches the result."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"})
+
+        is_valid, reason = engine.get_cache_status(template_file, {"name": "World"})
+
+        assert is_valid is True
+        assert reason == "valid"
+
+    def test_get_cache_status_variables_changed(self):
+        """Test cache status detects variable changes."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"})
+
+        is_valid, reason = engine.get_cache_status(template_file, {"name": "Alice"})
+
+        assert is_valid is False
+        assert reason == "variables_changed"
+
+    def test_get_cache_status_source_modified(self):
+        """Test cache status detects source file modification."""
+        import time
+
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"})
+
+        time.sleep(0.01)
+        template_file.write_text("Hello {{ name }} from modified!")
+
+        is_valid, reason = engine.get_cache_status(template_file, {"name": "World"})
+
+        assert is_valid is False
+        assert reason == "source_modified"
+
+    def test_invalidate_cache_specific_source(self):
+        """Test invalidating cache for a specific source."""
+        engine = TemplateEngine(self.template_dir)
+        template_file1 = self.template_dir / "template1.j2"
+        template_file2 = self.template_dir / "template2.j2"
+        template_file1.write_text("Hello {{ name }}!")
+        template_file2.write_text("Goodbye {{ name }}!")
+
+        engine.render_file(template_file1, {"name": "World"})
+        engine.render_file(template_file2, {"name": "World"})
+
+        assert len(engine._cache) == 2
+
+        count = engine.invalidate_cache(template_file1)
+
+        assert count == 1
+        assert len(engine._cache) == 1
+        assert template_file2 in engine._cache
+        assert template_file1 not in engine._cache
+
+    def test_invalidate_cache_all_sources(self):
+        """Test invalidating all cached sources."""
+        engine = TemplateEngine(self.template_dir)
+        template_file1 = self.template_dir / "template1.j2"
+        template_file2 = self.template_dir / "template2.j2"
+        template_file1.write_text("Hello {{ name }}!")
+        template_file2.write_text("Goodbye {{ name }}!")
+
+        engine.render_file(template_file1, {"name": "World"})
+        engine.render_file(template_file2, {"name": "World"})
+
+        assert len(engine._cache) == 2
+
+        count = engine.invalidate_cache()
+
+        assert count == 2
+        assert len(engine._cache) == 0
+
+    def test_invalidate_cache_nonexistent_source(self):
+        """Test invalidating cache for a non-cached source returns 0."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        count = engine.invalidate_cache(template_file)
+
+        assert count == 0
+
+    def test_get_cached_content(self):
+        """Test retrieving cached content."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        result = engine.get_cached_content(template_file)
+
+        assert result is None
+
+        engine.render_file(template_file, {"name": "World"})
+
+        result = engine.get_cached_content(template_file)
+
+        assert result == "Hello World!"
+
+    def test_render_uses_cache(self):
+        """Test that render uses cached result when valid."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        result1 = engine.render_file(template_file, {"name": "World"})
+        result2 = engine.render_file(template_file, {"name": "World"})
+
+        assert result1 == result2 == "Hello World!"
+        assert len(engine._cache) == 1
+
+    def test_render_invalidates_on_source_change(self):
+        """Test that render re-renders when source changes."""
+        import time
+
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        result1 = engine.render_file(template_file, {"name": "World"})
+
+        time.sleep(0.01)
+        template_file.write_text("Hi {{ name }}!")
+
+        result2 = engine.render_file(template_file, {"name": "World"})
+
+        assert result1 == "Hello World!"
+        assert result2 == "Hi World!"
+
+    def test_variables_hash_different_for_different_vars(self):
+        """Test that variables hash differs for different variables."""
+        engine = TemplateEngine(self.template_dir)
+
+        hash1 = engine._get_variables_hash({"name": "World", "age": 30})
+        hash2 = engine._get_variables_hash({"name": "World", "age": 25})
+        hash3 = engine._get_variables_hash({"name": "Alice", "age": 30})
+
+        assert hash1 != hash2
+        assert hash1 != hash3
+
+    def test_variables_hash_same_for_same_vars(self):
+        """Test that variables hash is same for same variables."""
+        engine = TemplateEngine(self.template_dir)
+
+        hash1 = engine._get_variables_hash({"name": "World", "age": 30})
+        hash2 = engine._get_variables_hash({"name": "World", "age": 30})
+
+        assert hash1 == hash2
+
+    def test_variables_hash_order_independent(self):
+        """Test that variables hash is independent of key order."""
+        engine = TemplateEngine(self.template_dir)
+
+        hash1 = engine._get_variables_hash({"a": 1, "b": 2, "c": 3})
+        hash2 = engine._get_variables_hash({"c": 3, "a": 1, "b": 2})
+
+        assert hash1 == hash2
+
+    def test_cache_with_output_file(self):
+        """Test that cache is updated even when rendering to output file."""
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        output_file = Path(self.temp_dir) / "output.txt"
+        template_file.write_text("Hello {{ name }}!")
+
+        engine.render_file(template_file, {"name": "World"}, output=output_file)
+
+        is_valid, reason = engine.get_cache_status(template_file, {"name": "World"})
+
+        assert is_valid is True
+        assert reason == "valid"
+
+    def test_cache_timestamp_tracks_render(self):
+        """Test that cache tracks when template was rendered."""
+        import time
+
+        engine = TemplateEngine(self.template_dir)
+        template_file = self.template_dir / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        before_render = time.monotonic()
+        engine.render_file(template_file, {"name": "World"})
+        after_render = time.monotonic()
+
+        cached = engine._cache[template_file]
+        assert before_render <= cached.rendered_at <= after_render
