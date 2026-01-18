@@ -10,17 +10,23 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from dotman.config import Config
+from dotman.config import CLIConfig, Config
 from dotman.exceptions import (
     DotmanError,
     HookExecutionError,
     LinkExistsError,
     LinkTargetMissingError,
     MissingDependencyError,
+    RemoteAuthenticationError,
+    RemoteCloneError,
+    RemoteFetchError,
+    RemoteNotFoundError,
+    RemotePushError,
 )
 from dotman.history import DeployedFile, HistoryManager
 from dotman.hook_executor import HookExecutor
 from dotman.link_manager import LinkManager, LinkStatus
+from dotman.remote import RemoteManager, detect_remote_from_string
 from dotman.template_engine import TemplateEngine
 
 app = typer.Typer(
@@ -31,12 +37,25 @@ app = typer.Typer(
 console = Console()
 
 
-def get_config(config_dir: Path | None = None) -> Config:
+def get_config(
+    config_dir: Path | None = None,
+    backup_dir: str | None = None,
+    template_suffix: str | None = None,
+) -> Config:
     """Get the configuration instance."""
     if config_dir is None:
         if os.environ.get("DOTMAN_CONFIG_DIR"):
             config_dir = Path(os.environ["DOTMAN_CONFIG_DIR"])
-    return Config(config_dir)
+
+    cli_config = CLIConfig(
+        config_dir=config_dir,
+        backup_dir=backup_dir,
+        template_suffix=template_suffix,
+    )
+
+    repo_dir = config_dir if config_dir is not None else Path.cwd()
+
+    return Config(repo_dir, cli_config=cli_config)
 
 
 @app.command()
@@ -63,6 +82,215 @@ def init() -> None:
 
 
 @app.command()
+def clone(
+    repository: Annotated[
+        str,
+        typer.Argument(help="Repository URL or shorthand (e.g., user/repo)"),
+    ],
+    target_dir: Annotated[
+        Path | None,
+        typer.Argument(help="Target directory for the clone"),
+    ] = None,
+    branch: Annotated[
+        str,
+        typer.Option("--branch", "-b", help="Branch to clone"),
+    ] = "main",
+    auth_token: Annotated[
+        str | None,
+        typer.Option(
+            "--auth-token", "-t", help="Authentication token for private repos"
+        ),
+    ] = None,
+    shallow: Annotated[
+        bool,
+        typer.Option("--shallow", help="Perform a shallow clone"),
+    ] = False,
+    init: Annotated[
+        bool,
+        typer.Option("--init", help="Initialize dotman in the cloned repository"),
+    ] = False,
+) -> None:
+    """Clone a remote dotfiles repository.
+
+    Supports GitHub (user/repo or full URL) and GitLab repositories.
+
+    Examples:
+        dotman clone user/dotfiles
+        dotman clone https://github.com/user/dotfiles.git
+        dotman clone user/dotfiles --branch develop --init
+    """
+    from urllib.parse import urlparse
+
+    url = detect_remote_from_string(repository)
+
+    if target_dir is None:
+        parsed = urlparse(url)
+        repo_name = Path(parsed.path).stem
+        if repo_name.endswith(".git"):
+            repo_name = repo_name[:-4]
+        target_dir = Path.cwd() / repo_name
+
+    if target_dir.exists():
+        console.print(f"[yellow]Target directory already exists: {target_dir}[/yellow]")
+        raise typer.Exit(1)
+
+    depth = 1 if shallow else None
+
+    console.print(f"[cyan]Cloning repository: {url}[/cyan]")
+    console.print(f"  Branch: {branch}")
+    console.print(f"  Target: {target_dir}")
+
+    try:
+        remote_manager = RemoteManager(target_dir.parent)
+        remote_manager.clone(
+            url=url,
+            target_dir=target_dir,
+            branch=branch,
+            auth_token=auth_token,
+            depth=depth,
+        )
+    except RemoteNotFoundError as e:
+        console.print(f"[red]Repository not found:[/red] {e}")
+        raise typer.Exit(1)
+    except RemoteAuthenticationError as e:
+        console.print(f"[red]Authentication failed:[/red] {e}")
+        console.print("Provide a valid auth token with --auth-token")
+        raise typer.Exit(1)
+    except RemoteCloneError as e:
+        console.print(f"[red]Clone failed:[/red] {e}")
+        raise typer.Exit(1)
+
+    console.print(f"[green]Successfully cloned to: {target_dir}[/green]")
+
+    if init:
+        config = get_config(config_dir=target_dir)
+        if not config.is_initialized():
+            config.init()
+            console.print("[green]Dotman initialized in cloned repository[/green]")
+        else:
+            console.print(
+                "[yellow]Dotman already initialized in cloned repository[/yellow]"
+            )
+
+
+@app.command()
+def push(
+    remote: Annotated[
+        str | None,
+        typer.Argument(help="Remote name (default: origin)"),
+    ] = None,
+    branch: Annotated[
+        str | None,
+        typer.Option("--branch", "-b", help="Branch to push"),
+    ] = None,
+    set_upstream: Annotated[
+        bool,
+        typer.Option("--set-upstream", "-u", help="Set remote tracking branch"),
+    ] = False,
+    config_dir: Annotated[
+        Path | None,
+        typer.Option("--config-dir", "-c", help="The path of config directory"),
+    ] = None,
+) -> None:
+    """Push changes to the remote repository.
+
+    Examples:
+        dotman push
+        dotman push origin
+        dotman push origin main
+        dotman push --set-upstream origin develop
+    """
+    config = get_config(config_dir)
+
+    if not config.is_initialized():
+        console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
+        raise typer.Exit(1)
+
+    remote_manager = RemoteManager(config.repo_dir)
+
+    if not remote_manager.is_git_repo():
+        console.print("[red]This is not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    remote_name = remote or "origin"
+    push_branch = branch
+
+    if push_branch is None:
+        push_branch = remote_manager.get_current_branch()
+        console.print(f"[cyan]Using current branch: {push_branch}[/cyan]")
+
+    try:
+        remote_url = remote_manager.get_remote_url(remote_name)
+        console.print(f"[cyan]Pushing to: {remote_name} ({remote_url})[/cyan]")
+        console.print(f"  Branch: {push_branch}")
+
+        remote_manager.push(
+            remote=remote_name,
+            branch=push_branch,
+            set_upstream=set_upstream,
+        )
+
+        console.print("[green]Successfully pushed to remote![/green]")
+    except RemotePushError as e:
+        console.print(f"[red]Push failed:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def pull(
+    remote: Annotated[
+        str | None,
+        typer.Argument(help="Remote name (default: origin)"),
+    ] = None,
+    branch: Annotated[
+        str | None,
+        typer.Option("--branch", "-b", help="Branch to pull"),
+    ] = None,
+    config_dir: Annotated[
+        Path | None,
+        typer.Option("--config-dir", "-c", help="The path of config directory"),
+    ] = None,
+) -> None:
+    """Pull changes from the remote repository.
+
+    Examples:
+        dotman pull
+        dotman pull origin
+        dotman pull origin main
+    """
+    config = get_config(config_dir)
+
+    if not config.is_initialized():
+        console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
+        raise typer.Exit(1)
+
+    remote_manager = RemoteManager(config.repo_dir)
+
+    if not remote_manager.is_git_repo():
+        console.print("[red]This is not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    remote_name = remote or "origin"
+    pull_branch = branch
+
+    if pull_branch is None:
+        pull_branch = remote_manager.get_current_branch()
+        console.print(f"[cyan]Using current branch: {pull_branch}[/cyan]")
+
+    try:
+        remote_url = remote_manager.get_remote_url(remote_name)
+        console.print(f"[cyan]Pulling from: {remote_name} ({remote_url})[/cyan]")
+        console.print(f"  Branch: {pull_branch}")
+
+        remote_manager.pull(remote=remote_name, branch=pull_branch)
+
+        console.print("[green]Successfully pulled from remote![/green]")
+    except RemoteFetchError as e:
+        console.print(f"[red]Pull failed:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
 def deploy(
     packages: Annotated[
         list[str] | None,
@@ -82,9 +310,17 @@ def deploy(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    backup_dir: Annotated[
+        str | None,
+        typer.Option("--backup-dir", help="Override backup directory"),
+    ] = None,
+    template_suffix: Annotated[
+        str | None,
+        typer.Option("--template-suffix", help="Override template suffix"),
+    ] = None,
 ) -> None:
     """Deploy dotfiles by creating symlinks."""
-    config = get_config(config_dir)
+    config = get_config(config_dir, backup_dir, template_suffix)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -275,9 +511,13 @@ def undeploy(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    backup_dir: Annotated[
+        str | None,
+        typer.Option("--backup-dir", help="Override backup directory"),
+    ] = None,
 ) -> None:
     """Remove deployed dotfile symlinks."""
-    config = get_config(config_dir)
+    config = get_config(config_dir, backup_dir)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -340,9 +580,13 @@ def status(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    backup_dir: Annotated[
+        str | None,
+        typer.Option("--backup-dir", help="Override backup directory"),
+    ] = None,
 ) -> None:
     """Show status of deployed dotfiles."""
-    config = get_config(config_dir)
+    config = get_config(config_dir, backup_dir)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -441,9 +685,13 @@ def list_packages(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    backup_dir: Annotated[
+        str | None,
+        typer.Option("--backup-dir", help="Override backup directory"),
+    ] = None,
 ) -> None:
     """List all available packages."""
-    config = get_config(config_dir)
+    config = get_config(config_dir, backup_dir)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -539,9 +787,13 @@ def absorb_changes(
         bool,
         typer.Option("--dry-run", help="Preview changes without applying them"),
     ] = False,
+    backup_dir: Annotated[
+        str | None,
+        typer.Option("--backup-dir", help="Override backup directory"),
+    ] = None,
 ) -> None:
     """Absorb changes from deployed dotfiles back into the dotfiles repository."""
-    config = get_config(config_dir)
+    config = get_config(config_dir, backup_dir)
     link_manager = LinkManager(config.backup_dir)
 
     if not config.is_initialized():
@@ -629,9 +881,13 @@ def show_history(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    backup_dir: Annotated[
+        str | None,
+        typer.Option("--backup-dir", help="Override backup directory"),
+    ] = None,
 ) -> None:
     """Show deployment history."""
-    config = get_config(config_dir)
+    config = get_config(config_dir, backup_dir)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
@@ -683,9 +939,13 @@ def rollback(
         Path | None,
         typer.Option("--config-dir", "-c", help="The path of config directory"),
     ] = None,
+    backup_dir: Annotated[
+        str | None,
+        typer.Option("--backup-dir", help="Override backup directory"),
+    ] = None,
 ) -> None:
     """Rollback a deployment by restoring from backup and removing symlinks."""
-    config = get_config(config_dir)
+    config = get_config(config_dir, backup_dir)
 
     if not config.is_initialized():
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")

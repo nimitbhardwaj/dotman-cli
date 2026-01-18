@@ -25,6 +25,24 @@ class ConfigParseError(ConfigError):
     pass
 
 
+class ConfigIncludeError(ConfigError):
+    """Error including configuration file."""
+
+    pass
+
+
+class ConfigIncludeNotFoundError(ConfigIncludeError):
+    """Included configuration file not found."""
+
+    pass
+
+
+class CircularIncludeError(ConfigIncludeError):
+    """Circular reference detected in configuration includes."""
+
+    pass
+
+
 class LinkError(DotmanError):
     """Symlink-related errors."""
 
@@ -105,5 +123,41 @@ class HistoryError(DotmanError):
 
 class RollbackError(DotmanError):
     """Rollback-related errors."""
+
+    pass
+
+
+class RemoteError(DotmanError):
+    """Remote repository-related errors."""
+
+    pass
+
+
+class RemoteCloneError(RemoteError):
+    """Error cloning a remote repository."""
+
+    pass
+
+
+class RemoteFetchError(RemoteError):
+    """Error fetching from a remote repository."""
+
+    pass
+
+
+class RemoteNotFoundError(RemoteError):
+    """Remote repository not found."""
+
+    pass
+
+
+class RemoteAuthenticationError(RemoteError):
+    """Authentication error for remote repository."""
+
+    pass
+
+
+class RemotePushError(RemoteError):
+    """Error pushing to remote repository."""
 
     pass
