@@ -18,6 +18,10 @@ A modern, Pythonic dotfile manager that uses symbolic links and Jinja2 templates
 - **Hooks System** - Execute shell commands before and after deployments with template support
 - **Deployment History** - Track all deployments with unique IDs for auditing
 - **Rollback Support** - Restore previous deployments from history
+- **Watch Mode** - Automatically deploy changes when files are modified
+- **Remote Repository Support** - Clone, push, and pull from GitHub/GitLab
+- **Template Caching** - Cache compiled templates for faster deployments
+- **Package Include System** - Include and compose configuration files
 
 ## Quick Start
 
@@ -132,8 +136,14 @@ packages:
 | `dotman status [packages]`   | Show status of deployed dotfiles               |
 | `dotman list`                | List all available packages                    |
 | `dotman absorb [packages]`   | Absorb unmanaged files from target directories |
+| `dotman watch`               | Watch for file changes and deploy automatically |
+| `dotman clone <repo>`        | Clone a remote dotfiles repository             |
+| `dotman push [remote]`       | Push changes to remote repository              |
+| `dotman pull [remote]`       | Pull changes from remote repository            |
 | `dotman history [--limit]`   | Show deployment history                        |
 | `dotman rollback [id]`       | Rollback a deployment by ID                    |
+| `dotman repo add <name>`     | Register current directory as a repository     |
+| `dotman repo list`           | List all registered repositories               |
 
 ### Options
 
@@ -480,6 +490,219 @@ dotman history
 dotman rollback x9y8z7w6
 ```
 
+## Watch Mode
+
+Automatically deploy dotfiles when source files are modified.
+
+```bash
+# Start watching for changes
+dotman watch
+
+# Watch will:
+# - Monitor your dotfiles repository for changes
+# - Deploy modified files automatically
+# - Use platform-specific file system watchers (inotify on Linux, kqueue on macOS)
+# - Debounce rapid changes to avoid excessive deployments
+```
+
+### How Watch Mode Works
+
+1. Watches all configured package directories recursively
+2. Detects file creation, modification, deletion, and movement
+3. Waits for a quiet period (debounce) before deploying
+4. Skips ACCESSED events to avoid unnecessary deployments
+5. Press `Ctrl+C` to stop watching
+
+### Platform Support
+
+- **Linux**: Uses inotify for efficient kernel-level file system events
+- **macOS/BSD**: Uses kqueue for optimal performance
+- **Fallback**: Polling-based watcher if native APIs are unavailable
+
+## Remote Repository Support
+
+Clone, push, and pull dotfiles from GitHub, GitLab, or any Git remote.
+
+### Cloning a Repository
+
+```bash
+# Clone using GitHub shorthand
+dotman clone user/dotfiles
+
+# Clone using full URL
+dotman clone https://github.com/user/dotfiles.git
+
+# Clone a specific branch
+dotman clone user/dotfiles --branch develop
+
+# Clone and initialize dotman
+dotman clone user/dotfiles --init
+
+# Shallow clone (faster, less history)
+dotman clone user/dotfiles --shallow
+```
+
+### Pushing Changes
+
+```bash
+# Push to default remote (origin)
+dotman push
+
+# Push to a specific remote
+dotman push origin
+
+# Push a specific branch
+dotman push origin main
+
+# Push and set upstream tracking
+dotman push --set-upstream origin develop
+```
+
+### Pulling Changes
+
+```bash
+# Pull from default remote (origin)
+dotman pull
+
+# Pull from a specific remote
+dotman pull origin
+
+# Pull a specific branch
+dotman pull origin main
+```
+
+### URL Formats Supported
+
+- `user/repo` - GitHub shorthand
+- `github:user/repo` - Explicit GitHub prefix
+- `gitlab:user/repo` - GitLab prefix
+- Full HTTPS URLs
+- SSH URLs (for push operations)
+
+## Template Caching
+
+Dotman caches compiled Jinja2 templates for faster repeated deployments.
+
+### How Caching Works
+
+1. First render: Template is compiled and cached
+2. Subsequent renders: Cached version is used if source and variables haven't changed
+3. Cache invalidation: Automatically invalidated when:
+   - Source file modification time changes
+   - Template variables change
+   - Cache is explicitly cleared
+
+### Cache Management
+
+```bash
+# Templates are automatically cached during deployment
+# No manual management required
+
+# Cache is invalidated when:
+# - Source file is modified
+# - Variables change
+# - dotman deploy --force is used
+```
+
+### Performance Benefits
+
+- Faster repeated deployments (skips template rendering)
+- Reduced CPU usage for large template sets
+- Smart detection of unchanged templates
+
+## Package Include System
+
+Compose configurations from multiple YAML files with the include system.
+
+### Basic Includes
+
+Include additional YAML files in your configuration:
+
+```yaml
+# config.yaml
+includes:
+  - "../shared/base.yaml"
+  - "../os-specific/linux.yaml"
+
+packages:
+  myconfig:
+    depends: []
+    files:
+      - source: "myconfig"
+        target: "~/.myconfig"
+```
+
+### Circular Include Detection
+
+Dotman automatically detects circular references in includes:
+
+```yaml
+# a.yaml
+includes:
+  - "b.yaml"
+
+# b.yaml
+includes:
+  - "a.yaml"
+```
+
+This will produce an error:
+```
+CircularIncludeError: Circular reference detected: a.yaml -> b.yaml -> a.yaml
+```
+
+### Include Resolution
+
+- Includes are resolved relative to the including file
+- Nested includes are fully supported
+- Each file is only processed once (prevents duplicate processing)
+- Variables from included files are merged with precedence rules
+
+## Multiple Repository Management
+
+Register and manage multiple dotfiles repositories.
+
+### Registering a Repository
+
+```bash
+# Register current directory as a named repository
+dotman repo add work
+
+# Register with a description
+dotman repo add personal "My personal dotfiles"
+
+# With remote URL detection
+dotman repo add home
+# Automatically detects if it's a git repo with remote
+```
+
+### Managing Repositories
+
+```bash
+# List all registered repositories
+dotman repo list
+
+# Show repository details
+dotman repo show
+dotman repo show work
+
+# Set default repository
+dotman repo default work
+
+# Unregister a repository
+dotman repo remove work
+```
+
+### Using Multiple Repositories
+
+```bash
+# Use a non-default repository
+dotman --repo work deploy
+dotman --repo personal status
+
+# Each repository has its own config.yaml and history
+```
+
 ## Architecture
 
 ```
@@ -491,10 +714,13 @@ dotman/
 │       ├── cli.py              # Typer CLI commands
 │       ├── config.py           # Configuration loading and validation
 │       ├── link_manager.py     # Symlink creation and management
-│       ├── template_engine.py  # Jinja2 template rendering
+│       ├── template_engine.py  # Jinja2 template rendering with caching
 │       ├── hook_executor.py    # Hook execution for shell commands
 │       ├── history.py          # Deployment history tracking
-│       └── exceptions.py       # Custom exceptions
+│       ├── exceptions.py       # Custom exceptions
+│       ├── watcher.py          # File system watcher (inotify/kqueue/polling)
+│       ├── remote.py           # Remote repository management
+│       └── repository.py       # Multi-repository management
 ├── tests/                      # Test suite
 │   ├── __init__.py
 │   ├── test_config.py

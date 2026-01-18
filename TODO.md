@@ -157,32 +157,35 @@ A Python-based dotfile manager that replicates Dotter's functionality with a Pyt
   - [x] Unit tests (24 tests passing)
   - [x] Integration with deploy command
 
-### Phase 6: Advanced Features (FUTURE)
+### ✅ Phase 6: Advanced Features (COMPLETED)
 
-- [ ] **Package Include System**
-  - [ ] Include additional YAML files
-  - [ ] Package dependencies with composition
-  - [ ] Configuration merging with precedence
-  - [ ] OS-specific configuration includes
-  - [ ] Dependency resolution (topological sort)
-  - [ ] Circular dependency detection
+- [x] **Package Include System**
+  - [x] Include additional YAML files
+  - [x] Package dependencies with composition
+  - [x] Configuration merging with precedence
+  - [x] OS-specific configuration includes
+  - [x] Dependency resolution (topological sort)
+  - [x] Circular dependency detection
 
-- [ ] **Watch Mode**
-  - [ ] `dotman watch` - continuously monitor and deploy changes
-  - [ ] Debounced deployment to avoid rapid successive runs
-  - [ ] File system watchers (inotify on Linux, kqueue on macOS)
+- [x] **Watch Mode**
+  - [x] `dotman watch` - continuously monitor and deploy changes
+  - [x] Debounced deployment to avoid rapid successive runs
+  - [x] File system watchers (inotify on Linux, kqueue on macOS)
+  - [x] Polling fallback for unsupported platforms
 
-### Phase 7: Remote & Sync Features (FUTURE)
+### ✅ Phase 7: Remote & Sync Features (COMPLETED)
 
-- [ ] **Remote Repository Support**
-  - [ ] Clone dotfiles from remote repository
-  - [ ] Push/pull from GitHub/GitLab
-  - [ ] Multiple repository support
+- [x] **Remote Repository Support**
+  - [x] Clone dotfiles from remote repository
+  - [x] Push/pull from GitHub/GitLab
+  - [x] Multiple repository support
+  - [x] Repository registration and management
+  - [x] SSH and HTTPS URL support
 
-- [ ] **Template Caching**
-  - [ ] Cache compiled templates for performance
-  - [ ] Cache state detection to avoid redundant operations
-  - [ ] Automatic cache invalidation
+- [x] **Template Caching**
+  - [x] Cache compiled templates for performance
+  - [x] Cache state detection to avoid redundant operations
+  - [x] Automatic cache invalidation
 
 ### Phase 8: Polish & Documentation (COMPLETED)
 
@@ -201,6 +204,36 @@ A Python-based dotfile manager that replicates Dotter's functionality with a Pyt
 
 ### Current Directory Structure
 
+```
+dotman/
+├── src/
+│   └── dotman/              # Python package
+│       ├── __init__.py
+│       ├── main.py             # Entry point
+│       ├── cli.py              # Typer CLI commands
+│       ├── config.py           # Configuration loading and validation
+│       ├── link_manager.py     # Symlink creation and management
+│       ├── template_engine.py  # Jinja2 template rendering with caching
+│       ├── hook_executor.py    # Hook execution for shell commands
+│       ├── history.py          # Deployment history tracking
+│       ├── exceptions.py       # Custom exceptions
+│       ├── watcher.py          # File system watcher (inotify/kqueue/polling)
+│       ├── remote.py           # Remote repository management
+│       └── repository.py       # Multi-repository management
+├── tests/                      # Test suite
+│   ├── __init__.py
+│   ├── test_config.py
+│   ├── test_link_manager.py
+│   ├── test_template_engine.py
+│   ├── test_exceptions.py
+│   ├── test_hooks.py       # 24 tests for hooks
+│   ├── test_cli_deploy.py
+│   ├── test_cli_status.py
+│   └── ...
+├── pyproject.toml              # Project configuration
+├── README.md                   # This file
+├── AGENTS.md                   # Guidelines for AI agents
+└── TODO.md                     # Development roadmap
 ```
 dotman/
 ├── src/
