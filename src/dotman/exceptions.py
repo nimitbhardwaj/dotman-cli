@@ -161,3 +161,21 @@ class RemotePushError(RemoteError):
     """Error pushing to remote repository."""
 
     pass
+
+
+class WatcherError(DotmanError):
+    """File system watcher-related errors."""
+
+    pass
+
+
+class WatcherBackendError(WatcherError):
+    """Error with file system watcher backend."""
+
+    pass
+
+
+class WatcherInitializationError(WatcherError):
+    """Error initializing file system watcher."""
+
+    pass
