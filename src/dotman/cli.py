@@ -10,7 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from dotman.config import CLIConfig, Config
+from dotman.config import Config
 from dotman.exceptions import (
     DotmanError,
     HookExecutionError,
@@ -48,15 +48,9 @@ def get_config(
         if os.environ.get("DOTMAN_CONFIG_DIR"):
             config_dir = Path(os.environ["DOTMAN_CONFIG_DIR"])
 
-    cli_config = CLIConfig(
-        config_dir=config_dir,
-        backup_dir=backup_dir,
-        template_suffix=template_suffix,
-    )
-
     repo_dir = config_dir if config_dir is not None else Path.cwd()
 
-    return Config(repo_dir, cli_config=cli_config)
+    return Config(repo_dir)
 
 
 @app.command()
