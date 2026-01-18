@@ -142,3 +142,4 @@ Thumbs.db
 
 # Ruff
 .ruff_cache
+.ralph-tui
