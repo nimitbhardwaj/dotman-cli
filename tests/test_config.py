@@ -712,3 +712,195 @@ class TestConfigPaths:
 
         assert settings.backup_dir == ".dotman/backups"
         assert settings.template_suffix == ".j2"
+
+
+class TestConfigTopologicalSort:
+    """Test Config topological sort for dependency resolution."""
+
+    def setup_method(self):
+        """Set up test fixtures with temporary directory."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.repo_dir = Path(self.temp_dir)
+        self.dotman_dir = self.repo_dir / ".dotman"
+        self.dotman_dir.mkdir()
+
+        config_data = {
+            "packages": {
+                "base": {
+                    "depends": [],
+                    "files": [],
+                    "variables": {},
+                },
+                "vim": {
+                    "depends": ["base"],
+                    "files": [],
+                    "variables": {},
+                },
+                "git": {
+                    "depends": ["base"],
+                    "files": [],
+                    "variables": {},
+                },
+                "full": {
+                    "depends": ["vim", "git"],
+                    "files": [],
+                    "variables": {},
+                },
+            }
+        }
+        (self.dotman_dir / "config.yaml").write_text(yaml.dump(config_data))
+
+    def teardown_method(self):
+        """Clean up temporary directory."""
+        import shutil
+
+        shutil.rmtree(self.temp_dir)
+
+    def test_simple_dependency_order(self):
+        """Test that dependencies come before packages that depend on them."""
+        (self.dotman_dir / "local.yaml").write_text(
+            yaml.dump({"packages": ["vim", "base"]})
+        )
+
+        config = Config(self.repo_dir)
+        order = config.get_packages_in_deployment_order()
+
+        # base should come before vim
+        base_idx = order.index("base")
+        vim_idx = order.index("vim")
+        assert base_idx < vim_idx
+
+    def test_chain_dependency_order(self):
+        """Test ordering with a chain of dependencies: A -> B -> C."""
+        config_data = {
+            "packages": {
+                "a": {"depends": [], "files": [], "variables": {}},
+                "b": {"depends": ["a"], "files": [], "variables": {}},
+                "c": {"depends": ["b"], "files": [], "variables": {}},
+            }
+        }
+        (self.dotman_dir / "config.yaml").write_text(yaml.dump(config_data))
+        (self.dotman_dir / "local.yaml").write_text(
+            yaml.dump({"packages": ["c", "b", "a"]})
+        )
+
+        config = Config(self.repo_dir)
+        order = config.get_packages_in_deployment_order()
+
+        # Order should be a -> b -> c
+        assert order.index("a") < order.index("b") < order.index("c")
+
+    def test_diamond_dependency_order(self):
+        """Test ordering with diamond dependency: A -> B, A -> C, B+C -> D."""
+        config_data = {
+            "packages": {
+                "a": {"depends": [], "files": [], "variables": {}},
+                "b": {"depends": ["a"], "files": [], "variables": {}},
+                "c": {"depends": ["a"], "files": [], "variables": {}},
+                "d": {"depends": ["b", "c"], "files": [], "variables": {}},
+            }
+        }
+        (self.dotman_dir / "config.yaml").write_text(yaml.dump(config_data))
+        (self.dotman_dir / "local.yaml").write_text(
+            yaml.dump({"packages": ["d", "c", "b", "a"]})
+        )
+
+        config = Config(self.repo_dir)
+        order = config.get_packages_in_deployment_order()
+
+        # a should come first
+        assert order[0] == "a"
+        # b and c should come before d
+        assert order.index("b") < order.index("d")
+        assert order.index("c") < order.index("d")
+
+    def test_multiple_independent_packages(self):
+        """Test ordering with multiple packages with no dependencies."""
+        (self.dotman_dir / "local.yaml").write_text(
+            yaml.dump({"packages": ["base", "git"]})
+        )
+
+        config = Config(self.repo_dir)
+        order = config.get_packages_in_deployment_order()
+
+        # Both should be in the result
+        assert "base" in order
+        assert "git" in order
+        # Order should be preserved for independent packages
+        assert order.index("base") < order.index("git")
+
+    def test_complex_dependency_graph(self):
+        """Test ordering with complex dependency graph."""
+        (self.dotman_dir / "local.yaml").write_text(
+            yaml.dump({"packages": ["full", "git", "vim", "base"]})
+        )
+
+        config = Config(self.repo_dir)
+        order = config.get_packages_in_deployment_order()
+
+        # full depends on vim and git, which both depend on base
+        # base should be first
+        assert order.index("base") == 0
+        # vim and git should come before full
+        assert order.index("vim") < order.index("full")
+        assert order.index("git") < order.index("full")
+
+    def test_circular_dependency_raises_error(self):
+        """Test that circular dependencies raise CircularDependencyError."""
+        config_data = {
+            "packages": {
+                "a": {"depends": ["b"], "files": [], "variables": {}},
+                "b": {"depends": ["a"], "files": [], "variables": {}},
+            }
+        }
+        (self.dotman_dir / "config.yaml").write_text(yaml.dump(config_data))
+        (self.dotman_dir / "local.yaml").write_text(yaml.dump({"packages": ["a", "b"]}))
+
+        config = Config(self.repo_dir)
+        with pytest.raises(CircularDependencyError):
+            config.get_packages_in_deployment_order()
+
+    def test_specific_package_list(self):
+        """Test ordering with specific package list."""
+        (self.dotman_dir / "local.yaml").write_text(yaml.dump({"packages": ["vim"]}))
+
+        config = Config(self.repo_dir)
+        order = config.get_packages_in_deployment_order(["vim", "base"])
+
+        # Both should be included
+        assert "vim" in order
+        assert "base" in order
+        # base should come before vim
+        assert order.index("base") < order.index("vim")
+
+    def test_get_packages_in_undeployment_order(self):
+        """Test that undeployment order is reverse of deployment order."""
+        (self.dotman_dir / "local.yaml").write_text(
+            yaml.dump({"packages": ["full", "git", "vim", "base"]})
+        )
+
+        config = Config(self.repo_dir)
+        deploy_order = config.get_packages_in_deployment_order()
+        undeploy_order = config.get_packages_in_undeployment_order()
+
+        # Undeploy should be reverse of deploy
+        assert undeploy_order == list(reversed(deploy_order))
+
+    def test_missing_dependency_raises_error(self):
+        """Test that missing dependencies raise MissingDependencyError."""
+        (self.dotman_dir / "local.yaml").write_text(
+            yaml.dump({"packages": ["vim"]})  # base not enabled
+        )
+
+        config = Config(self.repo_dir)
+        with pytest.raises(MissingDependencyError):
+            config.get_packages_in_deployment_order()
+
+    def test_empty_package_list(self):
+        """Test with empty package list."""
+        (self.dotman_dir / "local.yaml").write_text(yaml.dump({"packages": []}))
+
+        config = Config(self.repo_dir)
+        order = config.get_packages_in_deployment_order()
+
+        assert order == []

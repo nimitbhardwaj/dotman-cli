@@ -292,6 +292,73 @@ class Config:
 
         return result
 
+    def get_packages_in_deployment_order(
+        self, package_names: list[str] | None = None
+    ) -> list[str]:
+        """Get packages in correct deployment order using topological sort.
+
+        Dependencies are deployed before packages that depend on them.
+        Maintains relative order of explicitly specified packages when possible.
+
+        Args:
+            package_names: List of package names. If None, uses all enabled packages.
+
+        Returns:
+            List of package names in deployment order (dependencies first).
+
+        Raises:
+            CircularDependencyError: If circular dependencies are detected.
+            MissingDependencyError: If a dependency is missing or not enabled.
+        """
+        packages_to_deploy = package_names or self.get_enabled_packages()
+
+        all_packages = self.get_all_packages_with_dependencies(packages_to_deploy)
+
+        dependency_graph: dict[str, set[str]] = {}
+        in_degree: dict[str, int] = {}
+
+        for pkg_name in all_packages:
+            package = self.get_package(pkg_name)
+            deps = package.depends if package else []
+            dependency_graph[pkg_name] = set(deps)
+            in_degree[pkg_name] = len(deps)
+
+        from collections import deque
+
+        queue = deque([pkg for pkg in all_packages if in_degree[pkg] == 0])
+        deployment_order = []
+
+        while queue:
+            current = queue.popleft()
+            deployment_order.append(current)
+
+            for dependent_pkg, pkg_deps in dependency_graph.items():
+                if current in pkg_deps:
+                    in_degree[dependent_pkg] -= 1
+                    if in_degree[dependent_pkg] == 0:
+                        queue.append(dependent_pkg)
+
+        remaining = [pkg for pkg in all_packages if in_degree[pkg] > 0]
+        if remaining:
+            cycle_path = " -> ".join(remaining) + " -> " + remaining[0]
+            raise CircularDependencyError(f"Circular dependency detected: {cycle_path}")
+
+        return deployment_order
+
+    def get_packages_in_undeployment_order(
+        self, package_names: list[str] | None = None
+    ) -> list[str]:
+        """Get packages in correct undeployment order (reverse of deployment).
+
+        Args:
+            package_names: List of package names. If None, uses all enabled packages.
+
+        Returns:
+            List of package names in undeployment order (dependents first).
+        """
+        deployment_order = self.get_packages_in_deployment_order(package_names)
+        return list(reversed(deployment_order))
+
     def get_merged_variables(self, package_name: str | None = None) -> dict[str, Any]:
         """Get merged variables from global, local, and package configs."""
         variables = dict(self.global_config.variables)
@@ -325,7 +392,7 @@ class Config:
                 yaml.dump(default_global, f, default_flow_style=False, sort_keys=False)
 
         if not self.local_config_path.exists():
-            default_local = {
+            default_local: dict[str, Any] = {
                 "packages": [],
                 "variables": {},
                 "file_overrides": {},
