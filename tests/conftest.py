@@ -512,3 +512,114 @@ def temp_repo_with_simple_package(temp_repo):
     (simple_dir / "file").write_text("# simple file\n")
 
     return repo_dir
+
+
+@pytest.fixture
+def git_repo(temp_repo, monkeypatch):
+    """Create a git repository in the temp repo."""
+    import subprocess
+
+    monkeypatch.chdir(temp_repo)
+    subprocess.run(["git", "init"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"], check=True, capture_output=True
+    )
+
+    remote_dir = temp_repo.parent / "remote.git"
+    subprocess.run(
+        ["git", "init", "--bare", str(remote_dir)], check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "remote", "add", "origin", str(remote_dir)],
+        check=True,
+        capture_output=True,
+    )
+
+    (temp_repo / "README.md").write_text("# Test Repository\n")
+    subprocess.run(["git", "add", "."], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Initial commit"], check=True, capture_output=True
+    )
+
+    subprocess.run(
+        ["git", "push", "origin", "main"],
+        cwd=temp_repo,
+        capture_output=True,
+    )
+
+    return temp_repo
+
+
+@pytest.fixture
+def git_repo_with_remote(git_repo, tmp_path, monkeypatch):
+    """Create a git repository with a bare remote repository."""
+    import subprocess
+
+    remote_dir = tmp_path / "remote.git"
+    subprocess.run(
+        ["git", "init", "--bare", str(remote_dir)], check=True, capture_output=True
+    )
+
+    current_branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=git_repo,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    result = subprocess.run(
+        ["git", "remote", "get-url", "origin"],
+        cwd=git_repo,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(remote_dir)],
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
+        )
+
+    push_result = subprocess.run(
+        ["git", "push", "-u", "origin", current_branch],
+        cwd=git_repo,
+        capture_output=True,
+        text=True,
+    )
+    if push_result.returncode != 0:
+        subprocess.run(
+            ["git", "push", "-f", "-u", "origin", current_branch],
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
+        )
+
+    return git_repo
+
+
+@pytest.fixture
+def git_repo_with_changes(git_repo_with_remote, monkeypatch):
+    """Create a git repo with uncommitted changes."""
+    import subprocess
+
+    monkeypatch.chdir(git_repo_with_remote)
+    (git_repo_with_remote / "new_file.txt").write_text("# New file content\n")
+    subprocess.run(["git", "add", "."], check=True, capture_output=True)
+
+    return git_repo_with_remote
+
+
+@pytest.fixture
+def git_repo_with_unstaged_changes(git_repo_with_remote, monkeypatch):
+    """Create a git repo with unstaged changes (not added)."""
+
+    monkeypatch.chdir(git_repo_with_remote)
+    (git_repo_with_remote / "unstaged_file.txt").write_text("# Unstaged content\n")
+
+    return git_repo_with_remote
