@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from dotman.exceptions import (
+    NothingToCommitError,
     RemoteAuthenticationError,
     RemoteCloneError,
     RemoteFetchError,
@@ -368,6 +369,133 @@ class TestRemoteManager:
         assert "remote" in call_args
         assert "add" in call_args
         assert "origin" in call_args
+
+    @patch("subprocess.run")
+    def test_stage_all(self, mock_run):
+        """Test staging all changes."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "add"], returncode=0, stdout="", stderr=""
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        manager.stage_all()
+
+        mock_run.assert_called()
+        call_args = mock_run.call_args[0][0]
+        assert "add" in call_args
+        assert "-A" in call_args
+
+    @patch("subprocess.run")
+    def test_stage_all_failure(self, mock_run):
+        """Test stage_all raises error on failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1, cmd=["git", "add", "-A"], stderr="error"
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        with pytest.raises(RemoteCloneError):
+            manager.stage_all()
+
+    @patch("subprocess.run")
+    def test_commit_success(self, mock_run):
+        """Test successful commit."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "commit"], returncode=0, stdout="", stderr=""
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        manager.commit(message="Test commit message")
+
+        mock_run.assert_called()
+        call_args = mock_run.call_args[0][0]
+        assert "commit" in call_args
+        assert "-m" in call_args
+        assert "Test commit message" in call_args
+
+    @patch("subprocess.run")
+    def test_commit_nothing_to_commit(self, mock_run):
+        """Test commit raises NothingToCommitError when nothing to commit."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1,
+            cmd=["git", "commit"],
+            stderr="nothing to commit, working tree clean",
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        with pytest.raises(NothingToCommitError):
+            manager.commit(message="Test commit message")
+
+    @patch("subprocess.run")
+    def test_commit_failure(self, mock_run):
+        """Test commit raises RemoteCloneError on other failures."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1, cmd=["git", "commit"], stderr="commit failed"
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        with pytest.raises(RemoteCloneError):
+            manager.commit(message="Test commit message")
+
+    @patch("subprocess.run")
+    def test_has_staged_changes_true(self, mock_run):
+        """Test has_staged_changes returns True when changes are staged."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1, cmd=["git", "diff", "--cached", "--quiet"], stderr=""
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        result = manager.has_staged_changes()
+
+        assert result is True
+        call_args = mock_run.call_args[0][0]
+        assert "diff" in call_args
+        assert "--cached" in call_args
+        assert "--quiet" in call_args
+
+    @patch("subprocess.run")
+    def test_has_staged_changes_false(self, mock_run):
+        """Test has_staged_changes returns False when no changes are staged."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "diff", "--cached", "--quiet"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        result = manager.has_staged_changes()
+
+        assert result is False
+
+    @patch("subprocess.run")
+    def test_has_unstaged_changes_true(self, mock_run):
+        """Test has_unstaged_changes returns True when changes exist."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1, cmd=["git", "diff", "--quiet"], stderr=""
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        result = manager.has_unstaged_changes()
+
+        assert result is True
+        call_args = mock_run.call_args[0][0]
+        assert "diff" in call_args
+        assert "--quiet" in call_args
+
+    @patch("subprocess.run")
+    def test_has_unstaged_changes_false(self, mock_run):
+        """Test has_unstaged_changes returns False when no changes exist."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "diff", "--quiet"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+        manager = RemoteManager(Path("/tmp/test_repo"))
+        result = manager.has_unstaged_changes()
+
+        assert result is False
 
 
 class TestRemoteExceptions:

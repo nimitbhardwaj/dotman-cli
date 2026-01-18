@@ -312,11 +312,8 @@ class RemoteManager:
         Returns:
             True if there are staged changes, False otherwise
         """
-        try:
-            self._run_git_command(["diff", "--cached", "--quiet"], check=False)
-            return False
-        except RemoteCloneError:
-            return True
+        result = self._run_git_command(["diff", "--cached", "--quiet"], check=False)
+        return isinstance(result, subprocess.CalledProcessError)
 
     def has_unstaged_changes(self) -> bool:
         """Check if there are unstaged changes.
@@ -324,11 +321,8 @@ class RemoteManager:
         Returns:
             True if there are unstaged changes, False otherwise
         """
-        try:
-            self._run_git_command(["diff", "--quiet"], check=False)
-            return False
-        except RemoteCloneError:
-            return True
+        result = self._run_git_command(["diff", "--quiet"], check=False)
+        return isinstance(result, subprocess.CalledProcessError)
 
     def add_remote(self, name: str, url: str) -> None:
         """Add a remote to the repository.
