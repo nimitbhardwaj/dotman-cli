@@ -44,3 +44,19 @@ sessionID":"ses_42e0fa65affewzqplHU9RiF1XZ","part":{"id":"prt_bd1f20662001Fb3Xlb
 ple Repository Management\n- Updated Architecture diagram to include new v3 modules (watcher.py, remote.py, repository.py)\n\n**TODO.md:**\n- Marked Phase 6 (Advanced Features) as COMPLETED - Watch Mode and Package Include System\n- Marked Phase 7 (Remote & Sync Features) as COMPLETED - Remote Repository Support and Template Caching\n- Updated Architecture diagram\n\n**Quality checks passed:**\n- `ruff check src/` - All checks passed\n- `mypy src/` - Only expected warnings (missing yaml stubs)\n
 
 ---
+
+## 2026-01-19 - dotman-00u.3
+- **What was implemented**: Added `--stage-only` / `-s` flag to the push command with auto-generated commit messages
+- **Files changed**: src/dotman/cli.py
+- **Learnings:**
+  - Auto-generated commit message format: `dotman update: YYYY-MM-DD HH:MM:SS ZZZZ` using `datetime.now(UTC)` and local timezone offset via `astimezone().strftime("%z")`
+  - Used `NothingToCommitError` exception from the existing exception hierarchy (inherits from `RepositoryError`)
+  - All existing push command options (remote, branch, set_upstream) continue to work alongside the new flag
+  - Rich console coloring: yellow for no changes/info, cyan for actions, green for success, red for errors
+- **Patterns discovered:**
+  - RemoteManager already had `stage_all()`, `commit()`, `has_staged_changes()`, and `has_unstaged_changes()` methods implemented in bead dotman-00u.2
+  - Exception handling pattern: catch specific exceptions and print user-friendly messages with appropriate exit codes
+- **Gotchas encountered:**
+  - `datetime.timezone.utc` should be replaced with `datetime.UTC` (Python 3.11+) to pass ruff UP017 lint rule
+  - Coverage reporting requires pytest-cov plugin which needs to be installed for the Python version being used
+---
