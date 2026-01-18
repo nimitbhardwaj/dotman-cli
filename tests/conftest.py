@@ -299,3 +299,216 @@ def deployed_repo_with_ignore_pattern(temp_repo, home_dir, monkeypatch):
     (config_home / "file2.bak").write_text("# modified backup\n")
 
     return repo_dir
+
+
+@pytest.fixture
+def deployed_repo_with_symlinks(repo_with_source_files, home_dir, monkeypatch):
+    """Create a repo with deployed symlinks for undeploy tests."""
+    repo_dir = repo_with_source_files
+
+    bashrc_link = home_dir / ".bashrc"
+    bashrc_link.parent.mkdir(parents=True, exist_ok=True)
+    bashrc_link.symlink_to(repo_dir / "bash" / ".bashrc")
+
+    vimrc_link = home_dir / ".vimrc"
+    vimrc_link.parent.mkdir(parents=True, exist_ok=True)
+    vimrc_link.symlink_to(repo_dir / "vim" / ".vimrc")
+
+    return repo_dir
+
+
+@pytest.fixture
+def deployed_repo_with_regular_files(repo_with_source_files, home_dir, monkeypatch):
+    """Create a repo where target files are regular files (not symlinks)."""
+    repo_dir = repo_with_source_files
+
+    bashrc_file = home_dir / ".bashrc"
+    bashrc_file.parent.mkdir(parents=True, exist_ok=True)
+    bashrc_file.write_text("# Regular file content\n")
+
+    vimrc_file = home_dir / ".vimrc"
+    vimrc_file.parent.mkdir(parents=True, exist_ok=True)
+    vimrc_file.write_text("# Vimrc regular file\n")
+
+    return repo_dir
+
+
+@pytest.fixture
+def deployed_repo_with_circular_dep(
+    repo_with_circular_dependency, home_dir, monkeypatch
+):
+    """Create a repo with circular dependencies that are deployed."""
+    repo_dir = repo_with_circular_dependency
+
+    a_dir = repo_dir / "a"
+    a_dir.mkdir()
+    (a_dir / "file").write_text("# file a\n")
+
+    b_dir = repo_dir / "b"
+    b_dir.mkdir()
+    (b_dir / "file").write_text("# file b\n")
+
+    a_link = home_dir / ".a"
+    a_link.parent.mkdir(parents=True, exist_ok=True)
+    a_link.symlink_to(a_dir / "file")
+
+    b_link = home_dir / ".b"
+    b_link.parent.mkdir(parents=True, exist_ok=True)
+    b_link.symlink_to(b_dir / "file")
+
+    return repo_dir
+
+
+@pytest.fixture
+def temp_repo_with_missing_dep(temp_repo):
+    """Create a temp repo where a dependency is not defined."""
+    repo_dir = temp_repo
+    dotman_dir = repo_dir / ".dotman"
+    config_path = dotman_dir / "config.yaml"
+    local_config_path = dotman_dir / "local.yaml"
+
+    config = {
+        "settings": {
+            "backup_dir": ".dotman/backups",
+            "template_suffix": ".j2",
+        },
+        "variables": {},
+        "packages": {
+            "pkg_a": {
+                "depends": ["pkg_b"],
+                "files": [{"source": "a/file", "target": "~/.a"}],
+                "variables": {},
+            },
+        },
+    }
+
+    local_config = {
+        "packages": ["pkg_a"],
+        "variables": {},
+        "file_overrides": {},
+    }
+
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    with open(local_config_path, "w") as f:
+        yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+    a_dir = repo_dir / "a"
+    a_dir.mkdir()
+    (a_dir / "file").write_text("# file a\n")
+
+    return repo_dir
+
+
+@pytest.fixture
+def temp_repo_with_disabled_dep(temp_repo):
+    """Create a temp repo where a dependency is not enabled."""
+    repo_dir = temp_repo
+    dotman_dir = repo_dir / ".dotman"
+    config_path = dotman_dir / "config.yaml"
+    local_config_path = dotman_dir / "local.yaml"
+
+    config = {
+        "settings": {
+            "backup_dir": ".dotman/backups",
+            "template_suffix": ".j2",
+        },
+        "variables": {},
+        "packages": {
+            "pkg_a": {
+                "depends": ["pkg_b"],
+                "files": [{"source": "a/file", "target": "~/.a"}],
+                "variables": {},
+            },
+            "pkg_b": {
+                "depends": [],
+                "files": [{"source": "b/file", "target": "~/.b"}],
+                "variables": {},
+            },
+        },
+    }
+
+    local_config = {
+        "packages": ["pkg_a"],
+        "variables": {},
+        "file_overrides": {},
+    }
+
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    with open(local_config_path, "w") as f:
+        yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+    a_dir = repo_dir / "a"
+    a_dir.mkdir()
+    (a_dir / "file").write_text("# file a\n")
+
+    b_dir = repo_dir / "b"
+    b_dir.mkdir()
+    (b_dir / "file").write_text("# file b\n")
+
+    return repo_dir
+
+
+@pytest.fixture
+def deployed_repo_with_multiple_symlinks(repo_with_source_files, home_dir, monkeypatch):
+    """Create a repo with multiple packages deployed as symlinks."""
+    repo_dir = repo_with_source_files
+
+    bashrc_link = home_dir / ".bashrc"
+    bashrc_link.parent.mkdir(parents=True, exist_ok=True)
+    bashrc_link.symlink_to(repo_dir / "bash" / ".bashrc")
+
+    vimrc_link = home_dir / ".vimrc"
+    vimrc_link.parent.mkdir(parents=True, exist_ok=True)
+    vimrc_link.symlink_to(repo_dir / "vim" / ".vimrc")
+
+    zshrc_link = home_dir / ".zshrc"
+    zshrc_link.parent.mkdir(parents=True, exist_ok=True)
+    zshrc_link.symlink_to(repo_dir / "zsh" / ".zshrc")
+
+    return repo_dir
+
+
+@pytest.fixture
+def temp_repo_with_simple_package(temp_repo):
+    """Create a temp repo with a simple single package for testing."""
+    repo_dir = temp_repo
+    dotman_dir = repo_dir / ".dotman"
+    config_path = dotman_dir / "config.yaml"
+    local_config_path = dotman_dir / "local.yaml"
+
+    config = {
+        "settings": {
+            "backup_dir": ".dotman/backups",
+            "template_suffix": ".j2",
+        },
+        "variables": {},
+        "packages": {
+            "simple": {
+                "depends": [],
+                "files": [{"source": "simple/file", "target": "~/.simple"}],
+                "variables": {},
+            },
+        },
+    }
+
+    local_config = {
+        "packages": ["simple"],
+        "variables": {},
+        "file_overrides": {},
+    }
+
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    with open(local_config_path, "w") as f:
+        yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+    simple_dir = repo_dir / "simple"
+    simple_dir.mkdir()
+    (simple_dir / "file").write_text("# simple file\n")
+
+    return repo_dir
