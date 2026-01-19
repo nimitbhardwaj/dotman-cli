@@ -228,11 +228,24 @@ dotman deploy --dry-run
 
 ### Key Files
 
-- `dotman/cli.py`: CLI commands using Typer
-- `dotman/config.py`: Configuration loading (Pydantic)
-- `dotman/link_manager.py`: Symlink operations
-- `dotman/template_engine.py`: Jinja2 rendering
-- `dotman/exceptions.py`: Exception hierarchy
+- `src/dotman/cli/__init__.py`: CLI utilities and re-exports all commands from `cli/commands/` subpackage along with shared utilities from `dotman.commands`
+- `src/dotman/cli/commands/`: CLI commands subpackage containing individual command modules:
+  - `__init__.py`: Exports all commands from the subpackage, handles module naming conflicts
+  - `absorb.py`: `absorb_changes` command
+  - `clone.py`: `clone` command
+  - `deploy.py`: `deploy` and `undeploy` commands
+  - `history.py`: `history` and `rollback` commands
+  - `init.py`: `init` command
+  - `pull.py`: `pull` command
+  - `push.py`: `push` command
+  - `repo.py`: repo subcommands (`add`, `list`, `remove`, `set-default`, `show`)
+  - `status.py`: `status` and `list_packages` commands
+  - `watch.py`: `watch` command
+- `src/dotman/commands.py`: Typer app definition (`app`, `repo_app`), shared utilities (`console`, `get_config`, `get_repository_option`)
+- `src/dotman/config.py`: Configuration loading (Pydantic)
+- `src/dotman/link_manager.py`: Symlink operations
+- `src/dotman/template_engine.py`: Jinja2 rendering
+- `src/dotman/exceptions.py`: Exception hierarchy
 
 ### Module Organization
 
