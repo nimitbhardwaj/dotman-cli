@@ -7,81 +7,81 @@ This file provides guidelines for AI agents operating in the Dotman repository.
 ### Installation
 
 ```bash
-# Install the package in development mode
-pip install -e .
+# Install the package and dependencies
+uv sync
 
-# Install dev dependencies
-pip install -e ".[dev]"
+# Install with dev dependencies
+uv sync --dev
 ```
 
 ### Linting and Formatting
 
 ```bash
 # Run ruff linter (checks E, F, I, UP rules)
-ruff check .
+uv run ruff check .
 
 # Fix auto-fixable issues
-ruff check --fix .
+uv run ruff check --fix .
 
 # Format code with ruff
-ruff format .
+uv run ruff format .
 
 # Run mypy type checker
-mypy .
+uv run mypy .
 ```
 
 ### Testing
 
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run a single test file
-pytest tests/test_config.py
+uv run pytest tests/test_config.py
 
 # Run a specific test class
-pytest tests/test_config.py::TestConfig
+uv run pytest tests/test_config.py::TestConfig
 
 # Run a specific test method
-pytest tests/test_config.py::TestConfig::test_load_global_config
+uv run pytest tests/test_config.py::TestConfig::test_load_global_config
 
 # Run tests with verbose output
-pytest -v
+uv run pytest -v
 
 # Run tests with coverage
-pytest --cov=dotman
+uv run pytest --cov=dotman
 ```
 
 ### Code Coverage
 
 ```bash
 # Run tests with coverage tracking
-coverage run -m pytest tests/ -q
+uv run coverage run -m pytest tests/ -q
 
 # View coverage report in terminal
-coverage report
+uv run coverage report
 
 # View detailed coverage report by module
-coverage report -m
+uv run coverage report -m
 
 # Generate HTML coverage report (opens in browser)
-coverage html
+uv run coverage html
 # Open htmlcov/index.html in browser
 
 # Generate XML coverage report (for CI/CD)
-coverage xml
+uv run coverage xml
 
 # Generate JSON coverage report (for tools)
-coverage json
+uv run coverage json
 
 # Check coverage meets minimum threshold (fails if below 80%)
-coverage report --fail-under=80
+uv run coverage report --fail-under=80
 
 # Combine coverage from multiple runs
-coverage combine
+uv run coverage combine
 
 # Erase coverage data
-coverage erase
+uv run coverage erase
 ```
 
 **Coverage Configuration**:
