@@ -1,6 +1,6 @@
 """Shared CLI utilities and base module for Dotman."""
 
-from dotman.cli.commands import clone, init
+from dotman.cli.commands import clone, init, pull, push
 from dotman.commands import (
     app,
     console,
@@ -17,4 +17,6 @@ __all__ = [
     "repo_app",
     "init",
     "clone",
+    "push",
+    "pull",
 ]
