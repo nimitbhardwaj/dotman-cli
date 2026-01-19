@@ -35,6 +35,8 @@ from dotman.remote import RemoteManager, detect_remote_from_string
 from dotman.template_engine import TemplateEngine
 from dotman.watcher import WatchEvent, WatchEventType, create_watcher
 
+console = Console()
+
 app = typer.Typer(
     name="dotman",
     help="A dotfile manager for symlinks and templates.",
@@ -45,7 +47,6 @@ repo_app = typer.Typer(
     help="Manage multiple dotfiles repositories.",
     no_args_is_help=True,
 )
-console = Console()
 
 
 def get_config(
