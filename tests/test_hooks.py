@@ -8,7 +8,7 @@ import yaml
 
 from dotman.core.config import Config, HookConfig, PackageConfig
 from dotman.core.exceptions import HookExecutionError
-from dotman.hook_executor import HookExecutor
+from dotman.services.hook_executor import HookExecutor
 
 
 class TestHookConfig:
