@@ -6,7 +6,7 @@ from typing import Annotated
 import typer
 from rich.table import Table
 
-from dotman.commands import console, repo_app
+from dotman.cli_utils import console, repo_app
 from dotman.core.config import Config, get_repo_manager
 from dotman.core.exceptions import RepositoryNotFoundError
 

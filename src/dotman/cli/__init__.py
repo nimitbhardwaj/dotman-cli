@@ -19,7 +19,7 @@ from dotman.cli.commands import (
     undeploy,
     watch,
 )
-from dotman.commands import (
+from dotman.cli_utils import (
     app,
     console,
     get_config,

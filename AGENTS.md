@@ -241,7 +241,7 @@ dotman deploy --dry-run
   - `repo.py`: repo subcommands (`add`, `list`, `remove`, `set-default`, `show`)
   - `status.py`: `status` and `list_packages` commands
   - `watch.py`: `watch` command
-- `src/dotman/commands.py`: Typer app definition (`app`, `repo_app`), shared utilities (`console`, `get_config`, `get_repository_option`)
+- `src/dotman/cli_utils.py`: Typer app definition (`app`, `repo_app`), shared utilities (`console`, `get_config`, `get_repository_option`)
 - `src/dotman/config.py`: Configuration loading (Pydantic)
 - `src/dotman/link_manager.py`: Symlink operations
 - `src/dotman/template_engine.py`: Jinja2 rendering

@@ -5,7 +5,7 @@ from typing import Annotated
 
 import typer
 
-from dotman.commands import app, console, get_config
+from dotman.cli_utils import app, console, get_config
 from dotman.core.config import get_repo_manager
 from dotman.managers.remote import RemoteManager
 
