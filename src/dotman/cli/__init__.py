@@ -3,12 +3,15 @@
 from dotman.cli.commands import (
     clone,
     deploy,
+    history,
     init,
     list_packages,
     pull,
     push,
+    rollback,
     status,
     undeploy,
+    watch,
 )
 from dotman.commands import (
     app,
@@ -32,4 +35,7 @@ __all__ = [
     "undeploy",
     "status",
     "list_packages",
+    "history",
+    "rollback",
+    "watch",
 ]
