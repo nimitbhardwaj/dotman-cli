@@ -45,8 +45,8 @@ class TestTemplateRenderingInDirectories:
         results = manager.create_link(
             source_dir,
             target_dir,
-            template_engine=template_engine,  # type: ignore
-            variables=variables,  # type: ignore
+            template_engine=template_engine,
+            variables=variables,
         )
 
         # Should have rendered the template
