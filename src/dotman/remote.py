@@ -6,7 +6,7 @@ from typing import cast
 
 from pydantic import BaseModel
 
-from dotman.exceptions import (
+from dotman.core.exceptions import (
     NothingToCommitError,
     RemoteAuthenticationError,
     RemoteCloneError,

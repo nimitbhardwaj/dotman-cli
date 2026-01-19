@@ -9,7 +9,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, TemplateError, UndefinedError
 
-from dotman.exceptions import TemplateRenderError
+from dotman.core.exceptions import TemplateRenderError
 
 TEMPLATE_PATTERN = re.compile(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}")
 

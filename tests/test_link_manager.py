@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from dotman.exceptions import LinkExistsError, LinkTargetMissingError
-from dotman.link_manager import LinkManager, LinkStatus
+from dotman.core.exceptions import LinkExistsError, LinkTargetMissingError
+from dotman.core.link_manager import LinkManager, LinkStatus
 
 
 class TestLinkManagerInit:

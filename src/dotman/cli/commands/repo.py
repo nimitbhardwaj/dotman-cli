@@ -7,8 +7,8 @@ import typer
 from rich.table import Table
 
 from dotman.commands import console, repo_app
-from dotman.config import Config, get_repo_manager
-from dotman.exceptions import RepositoryNotFoundError
+from dotman.core.config import Config, get_repo_manager
+from dotman.core.exceptions import RepositoryNotFoundError
 
 
 @repo_app.command(name="add")

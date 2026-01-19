@@ -7,8 +7,8 @@ import typer
 from rich.table import Table
 
 from dotman.commands import app, console, get_config
-from dotman.link_manager import LinkManager, LinkStatus
-from dotman.template_engine import TemplateEngine
+from dotman.core.link_manager import LinkManager, LinkStatus
+from dotman.core.template_engine import TemplateEngine
 
 
 @app.command()

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from dotman.exceptions import (
+from dotman.core.exceptions import (
     NothingToCommitError,
     RemoteAuthenticationError,
     RemoteCloneError,

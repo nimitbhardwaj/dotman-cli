@@ -6,7 +6,7 @@ from typing import Annotated
 import typer
 
 from dotman.commands import app, console, get_config
-from dotman.exceptions import RemoteFetchError
+from dotman.core.exceptions import RemoteFetchError
 from dotman.remote import RemoteManager
 
 

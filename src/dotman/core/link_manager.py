@@ -7,14 +7,14 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from dotman.exceptions import (
+from dotman.core.exceptions import (
     LinkExistsError,
     LinkTargetMissingError,
     TemplateRenderError,
 )
 
 if TYPE_CHECKING:
-    from dotman.template_engine import TemplateEngine
+    from dotman.core.template_engine import TemplateEngine
 
 
 class LinkStatus(Enum):

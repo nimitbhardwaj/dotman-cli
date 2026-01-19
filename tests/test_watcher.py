@@ -282,7 +282,7 @@ class TestWatcherExceptions:
 
     def test_watcher_backend_error_is_dotman_error(self):
         """Check WatcherBackendError is a DotmanError."""
-        from dotman.exceptions import DotmanError
+        from dotman.core.exceptions import DotmanError
 
         error = WatcherBackendError("test error")
         assert isinstance(error, DotmanError)

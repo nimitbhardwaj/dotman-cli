@@ -6,8 +6,14 @@ from pathlib import Path
 import pytest
 import yaml
 
-from dotman.config import Config, FileMapping, GlobalConfig, LocalConfig, PackageConfig
-from dotman.exceptions import (
+from dotman.core.config import (
+    Config,
+    FileMapping,
+    GlobalConfig,
+    LocalConfig,
+    PackageConfig,
+)
+from dotman.core.exceptions import (
     CircularDependencyError,
     ConfigNotFoundError,
     ConfigParseError,
@@ -75,7 +81,7 @@ class TestGlobalConfig:
 
     def test_global_config_custom_settings(self):
         """Test GlobalConfig with custom settings."""
-        from dotman.config import GlobalSettings
+        from dotman.core.config import GlobalSettings
 
         config = GlobalConfig(
             settings=GlobalSettings(

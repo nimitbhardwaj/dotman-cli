@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from dotman.exceptions import HistoryError
+from dotman.core.exceptions import HistoryError
 
 
 @dataclass

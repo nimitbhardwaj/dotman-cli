@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 
 from dotman.commands import app, console, get_config
-from dotman.link_manager import LinkManager
+from dotman.core.link_manager import LinkManager
 
 
 def _should_skip_file(

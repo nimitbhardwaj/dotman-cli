@@ -6,7 +6,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field
 
-from dotman.exceptions import (
+from dotman.core.exceptions import (
     ConfigNotFoundError,
     ConfigParseError,
     RepositoryNotFoundError,

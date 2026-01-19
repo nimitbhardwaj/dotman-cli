@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from dotman.config import Config, HookConfig, PackageConfig
-from dotman.exceptions import HookExecutionError
+from dotman.core.config import Config, HookConfig, PackageConfig
+from dotman.core.exceptions import HookExecutionError
 from dotman.hook_executor import HookExecutor
 
 

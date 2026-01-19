@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from dotman.link_manager import LinkManager
-from dotman.template_engine import TemplateEngine
+from dotman.core.link_manager import LinkManager
+from dotman.core.template_engine import TemplateEngine
 
 
 class TestTemplateRenderingInDirectories:

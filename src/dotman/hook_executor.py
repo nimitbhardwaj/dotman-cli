@@ -4,8 +4,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from dotman.exceptions import HookExecutionError
-from dotman.template_engine import TemplateEngine
+from dotman.core.exceptions import HookExecutionError
+from dotman.core.template_engine import TemplateEngine
 
 
 class HookExecutor:

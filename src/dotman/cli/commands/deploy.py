@@ -7,17 +7,17 @@ from typing import Annotated
 import typer
 
 from dotman.commands import app, console, get_config
-from dotman.exceptions import (
+from dotman.core.exceptions import (
     DotmanError,
     HookExecutionError,
     LinkExistsError,
     LinkTargetMissingError,
     MissingDependencyError,
 )
+from dotman.core.link_manager import LinkManager, LinkStatus
+from dotman.core.template_engine import TemplateEngine
 from dotman.history import DeployedFile, HistoryManager
 from dotman.hook_executor import HookExecutor
-from dotman.link_manager import LinkManager, LinkStatus
-from dotman.template_engine import TemplateEngine
 
 
 @app.command()

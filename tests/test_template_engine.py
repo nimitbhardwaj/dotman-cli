@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from dotman.exceptions import TemplateRenderError
-from dotman.template_engine import TEMPLATE_PATTERN, TemplateEngine
+from dotman.core.exceptions import TemplateRenderError
+from dotman.core.template_engine import TEMPLATE_PATTERN, TemplateEngine
 
 
 class TestTemplateEngineInit:

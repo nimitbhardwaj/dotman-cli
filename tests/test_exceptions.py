@@ -2,7 +2,7 @@
 
 import pytest
 
-from dotman.exceptions import (
+from dotman.core.exceptions import (
     ConfigError,
     ConfigNotFoundError,
     ConfigParseError,

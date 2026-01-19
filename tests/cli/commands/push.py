@@ -314,7 +314,7 @@ class TestPushCommandEdgeCases:
         self, runner, git_repo_with_changes, env_with_home, monkeypatch
     ):
         """Test push with --repo option (requires registered repository)."""
-        from dotman.config import get_repo_manager
+        from dotman.core.config import get_repo_manager
         from dotman.remote import RemoteManager
 
         monkeypatch.chdir(git_repo_with_changes)

@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from dotman.config import Config, get_repo_manager
+from dotman.core.config import Config, get_repo_manager
 
 console = Console()
 

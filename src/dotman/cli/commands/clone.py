@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import typer
 
 from dotman.commands import app, console, get_config
-from dotman.exceptions import (
+from dotman.core.exceptions import (
     RemoteAuthenticationError,
     RemoteCloneError,
     RemoteNotFoundError,
