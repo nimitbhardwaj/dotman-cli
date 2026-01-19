@@ -1,6 +1,7 @@
 """Shared CLI utilities and base module for Dotman."""
 
 from dotman.cli.commands import (
+    absorb_changes,
     clone,
     deploy,
     history,
@@ -22,6 +23,7 @@ from dotman.commands import (
 )
 
 __all__ = [
+    "absorb_changes",
     "app",
     "console",
     "get_config",
