@@ -15,7 +15,7 @@ classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: MIT License",
 ]
-version = "0.2.5"
+version = "0.2.6"
 description = "One more dot file manager but an interesting and easy to use one."
 readme = "README.md"
 requires-python = ">=3.12"
