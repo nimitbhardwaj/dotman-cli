@@ -37,13 +37,16 @@ uv run mypy .
 uv run pytest
 
 # Run a single test file
-uv run pytest tests/test_config.py
+uv run pytest tests/core/test_config.py
 
 # Run a specific test class
-uv run pytest tests/test_config.py::TestConfig
+uv run pytest tests/core/test_config.py::TestConfig
 
 # Run a specific test method
-uv run pytest tests/test_config.py::TestConfig::test_load_global_config
+uv run pytest tests/core/test_config.py::TestConfig::test_load_global_config
+
+# Run tests in a directory
+uv run pytest tests/core/
 
 # Run tests with verbose output
 uv run pytest -v
@@ -228,7 +231,8 @@ dotman deploy --dry-run
 
 ### Key Files
 
-- `src/dotman/cli/__init__.py`: CLI utilities and re-exports all commands from `cli/commands/` subpackage along with shared utilities from `dotman.commands`
+- `src/dotman/main.py`: CLI entry point
+- `src/dotman/cli/__init__.py`: CLI utilities and re-exports all commands from `cli/commands/` subpackage
 - `src/dotman/cli/commands/`: CLI commands subpackage containing individual command modules:
   - `__init__.py`: Exports all commands from the subpackage, handles module naming conflicts
   - `absorb.py`: `absorb_changes` command
@@ -242,10 +246,21 @@ dotman deploy --dry-run
   - `status.py`: `status` and `list_packages` commands
   - `watch.py`: `watch` command
 - `src/dotman/cli_utils.py`: Typer app definition (`app`, `repo_app`), shared utilities (`console`, `get_config`, `get_repository_option`)
-- `src/dotman/config.py`: Configuration loading (Pydantic)
-- `src/dotman/link_manager.py`: Symlink operations
-- `src/dotman/template_engine.py`: Jinja2 rendering
-- `src/dotman/exceptions.py`: Exception hierarchy
+- `src/dotman/core/`: Core modules package:
+  - `__init__.py`: Re-exports all core public APIs
+  - `config.py`: Configuration loading (Pydantic)
+  - `link_manager.py`: Symlink operations
+  - `template_engine.py`: Jinja2 rendering
+  - `exceptions.py`: Exception hierarchy
+- `src/dotman/managers/`: Operational managers package:
+  - `__init__.py`: Re-exports all managers public APIs
+  - `remote.py`: Remote repository operations
+  - `repository.py`: Repository registry management
+  - `history.py`: Deployment history tracking
+  - `watcher.py`: File system watching
+- `src/dotman/services/`: Execution services package:
+  - `__init__.py`: Re-exports all services public APIs
+  - `hook_executor.py`: Shell command hook execution
 
 ### Module Organization
 
