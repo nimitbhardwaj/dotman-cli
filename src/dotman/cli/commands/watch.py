@@ -9,7 +9,7 @@ from typing import Annotated
 import typer
 
 from dotman.cli_utils import app, console, get_config
-from dotman.managers.watcher import WatchEvent, WatchEventType, create_watcher
+from dotman.managers import WatchEvent, WatchEventType, create_watcher
 
 
 @app.command(name="watch")
