@@ -2,14 +2,19 @@
 
 from dotman.cli.commands import (
     absorb_changes,
+    add_repository,
     clone,
     deploy,
     history,
     init,
     list_packages,
+    list_repositories,
     pull,
     push,
+    remove_repository,
     rollback,
+    set_default_repository,
+    show_repository,
     status,
     undeploy,
     watch,
@@ -24,6 +29,7 @@ from dotman.commands import (
 
 __all__ = [
     "absorb_changes",
+    "add_repository",
     "app",
     "console",
     "get_config",
@@ -40,4 +46,8 @@ __all__ = [
     "history",
     "rollback",
     "watch",
+    "list_repositories",
+    "remove_repository",
+    "set_default_repository",
+    "show_repository",
 ]
