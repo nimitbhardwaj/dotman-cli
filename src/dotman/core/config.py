@@ -12,7 +12,7 @@ from dotman.core.exceptions import (
     ConfigParseError,
     MissingDependencyError,
 )
-from dotman.repository import RepoManager, RepositoryConfig
+from dotman.managers.repository import RepoManager, RepositoryConfig
 
 
 class FileMapping(BaseModel):

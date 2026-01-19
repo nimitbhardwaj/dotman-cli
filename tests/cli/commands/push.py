@@ -239,7 +239,7 @@ class TestPushCommand:
 
         monkeypatch.chdir(git_repo_with_changes)
 
-        from dotman import remote
+        from dotman.managers import remote
 
         original_run = remote.subprocess.run
 
@@ -315,7 +315,7 @@ class TestPushCommandEdgeCases:
     ):
         """Test push with --repo option (requires registered repository)."""
         from dotman.core.config import get_repo_manager
-        from dotman.remote import RemoteManager
+        from dotman.managers.remote import RemoteManager
 
         monkeypatch.chdir(git_repo_with_changes)
 

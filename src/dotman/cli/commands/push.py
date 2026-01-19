@@ -8,7 +8,7 @@ import typer
 
 from dotman.commands import app, console, get_config
 from dotman.core.exceptions import NothingToCommitError, RemotePushError
-from dotman.remote import RemoteManager
+from dotman.managers.remote import RemoteManager
 
 
 @app.command()

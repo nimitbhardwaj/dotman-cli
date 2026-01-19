@@ -16,8 +16,8 @@ from dotman.core.exceptions import (
 )
 from dotman.core.link_manager import LinkManager, LinkStatus
 from dotman.core.template_engine import TemplateEngine
-from dotman.history import DeployedFile, HistoryManager
 from dotman.hook_executor import HookExecutor
+from dotman.managers.history import DeployedFile, HistoryManager
 
 
 @app.command()

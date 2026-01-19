@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from dotman.watcher import (
+from dotman.managers.watcher import (
     FileSystemWatcher,
     PollingWatcher,
     WatcherBackendError,
@@ -229,11 +229,11 @@ class TestCreateWatcher:
         assert watcher is not None
 
         if sys.platform == "linux":
-            from dotman.watcher import InotifyWatcher
+            from dotman.managers.watcher import InotifyWatcher
 
             assert isinstance(watcher, InotifyWatcher)
         elif sys.platform == "darwin":
-            from dotman.watcher import KqueueWatcher
+            from dotman.managers.watcher import KqueueWatcher
 
             assert isinstance(watcher, KqueueWatcher)
         else:
@@ -250,12 +250,12 @@ class TestCreateWatcher:
         assert watcher1 is not watcher2
 
         if sys.platform == "linux":
-            from dotman.watcher import InotifyWatcher
+            from dotman.managers.watcher import InotifyWatcher
 
             assert isinstance(watcher1, InotifyWatcher)
             assert isinstance(watcher2, InotifyWatcher)
         elif sys.platform == "darwin":
-            from dotman.watcher import KqueueWatcher
+            from dotman.managers.watcher import KqueueWatcher
 
             assert isinstance(watcher1, KqueueWatcher)
             assert isinstance(watcher2, KqueueWatcher)

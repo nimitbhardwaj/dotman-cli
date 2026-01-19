@@ -7,7 +7,7 @@ import typer
 from rich.table import Table
 
 from dotman.commands import app, console, get_config
-from dotman.history import HistoryManager
+from dotman.managers.history import HistoryManager
 
 
 @app.command(name="history")

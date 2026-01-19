@@ -12,7 +12,7 @@ from dotman.core.exceptions import (
     RemoteCloneError,
     RemoteNotFoundError,
 )
-from dotman.remote import RemoteManager, detect_remote_from_string
+from dotman.managers.remote import RemoteManager, detect_remote_from_string
 
 
 @app.command()
