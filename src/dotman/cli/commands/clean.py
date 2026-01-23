@@ -73,6 +73,12 @@ def clean(
         str | None,
         typer.Option("--repo", "-r", help="Repository name"),
     ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", "-n", help="Show what would be removed without removing"
+        ),
+    ] = False,
 ) -> None:
     """Clean up deployment artifacts and temporary files."""
     config = get_config(config_dir, backup_dir, repo_name=repo_name)
@@ -100,16 +106,25 @@ def clean(
 
         for file_mapping in pkg.files:
             target = Path(file_mapping.target).expanduser()
-            target_dir = target.parent
 
-            if target_dir.exists():
-                orphaned = find_orphaned_symlinks(target_dir)
-                empty = find_empty_dirs(target_dir)
+            if target.is_dir():
+                target_dir = target
+                if target_dir.exists():
+                    orphaned = find_orphaned_symlinks(target_dir)
+                    empty = find_empty_dirs(target_dir)
 
-                if orphaned:
-                    orphaned_symlinks[pkg_name] = orphaned
-                if empty:
-                    empty_dirs[pkg_name] = empty
+                    if orphaned:
+                        orphaned_symlinks[pkg_name] = orphaned
+                    if empty:
+                        empty_dirs[pkg_name] = empty
+            elif target.is_file() or target.exists() or target.is_symlink():
+                # For file targets, check if the file itself is an orphaned symlink
+                if target.is_symlink():
+                    try:
+                        if not target.resolve().exists():
+                            orphaned_symlinks.setdefault(pkg_name, []).append(target)
+                    except (OSError, RuntimeError):
+                        orphaned_symlinks.setdefault(pkg_name, []).append(target)
 
     total_orphaned = sum(len(v) for v in orphaned_symlinks.values())
     total_empty = sum(len(v) for v in empty_dirs.values())
@@ -136,7 +151,10 @@ def clean(
 
     console.print(tree)
 
-    if not typer.confirm("Proceed with cleanup?"):
+    if dry_run:
+        console.print("[cyan]Dry run mode - no changes will be made[/cyan]")
+
+    if not dry_run and not typer.confirm("Proceed with cleanup?"):
         console.print("[yellow]Cleanup cancelled.[/yellow]")
         raise typer.Exit(0)
 
@@ -146,23 +164,32 @@ def clean(
     for pkg_name, paths in orphaned_symlinks.items():
         for path in paths:
             try:
-                path.unlink()
-                removed_orphaned += 1
-                console.print(f"  [green]Removed:[/green] {path}")
+                if dry_run:
+                    console.print(f"  [cyan]Would remove:[/cyan] {path}")
+                else:
+                    path.unlink()
+                    removed_orphaned += 1
+                    console.print(f"  [green]Removed:[/green] {path}")
             except OSError as e:
                 console.print(f"  [red]Failed to remove {path}: {e}[/red]")
 
     for pkg_name, dirs in empty_dirs.items():
         for dir_path in sorted(dirs, reverse=True):
             try:
-                dir_path.rmdir()
-                removed_empty += 1
-                console.print(f"  [green]Removed:[/green] {dir_path}")
+                if dry_run:
+                    console.print(f"  [cyan]Would remove:[/cyan] {dir_path}")
+                else:
+                    dir_path.rmdir()
+                    removed_empty += 1
+                    console.print(f"  [green]Removed:[/green] {dir_path}")
             except OSError as e:
                 console.print(f"  [yellow]Could not remove {dir_path}: {e}[/yellow]")
 
-    console.print("\n[green]Clean complete![/green]")
-    console.print(
-        f"[dim]Removed {removed_orphaned} orphaned symlinks"
-        f" and {removed_empty} empty directories.[/dim]"
-    )
+    if dry_run:
+        console.print("\n[cyan]Dry run complete - no changes were made[/cyan]")
+    else:
+        console.print("\n[green]Clean complete![/green]")
+        console.print(
+            f"[dim]Removed {removed_orphaned} orphaned symlinks"
+            f" and {removed_empty} empty directories.[/dim]"
+        )
