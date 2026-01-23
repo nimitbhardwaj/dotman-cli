@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
+from dotman import __version__
 from dotman.core.config import Config, get_repo_manager
 
 console = Console()
@@ -52,6 +53,16 @@ def get_repository_option() -> Annotated[
 ]:
     """Repository option for CLI commands."""
     return None
+
+
+@app.callback(invoke_without_command=True)
+def version_callback(
+    ctx: typer.Context,
+    version: bool = typer.Option(False, "--version", help="Show version"),
+) -> None:
+    if version:
+        console.print(__version__)
+        raise typer.Exit(0)
 
 
 app.add_typer(repo_app)
