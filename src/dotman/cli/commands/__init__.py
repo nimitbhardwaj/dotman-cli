@@ -2,6 +2,7 @@
 
 from dotman.cli.commands import history as history_mod
 from dotman.cli.commands.absorb import absorb_changes
+from dotman.cli.commands.clean import clean
 from dotman.cli.commands.clone import clone
 from dotman.cli.commands.deploy import deploy, undeploy
 from dotman.cli.commands.init import init
@@ -23,6 +24,7 @@ rollback = history_mod.rollback
 __all__ = [
     "absorb_changes",
     "add_repository",
+    "clean",
     "clone",
     "deploy",
     "history",
