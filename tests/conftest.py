@@ -623,3 +623,159 @@ def git_repo_with_unstaged_changes(git_repo_with_remote, monkeypatch):
     (git_repo_with_remote / "unstaged_file.txt").write_text("# Unstaged content\n")
 
     return git_repo_with_remote
+
+
+@pytest.fixture
+def repo_with_doctor_config(temp_repo, home_dir, monkeypatch):
+    """Create a temp repo with packages that have doctor config."""
+    repo_dir = temp_repo
+    dotman_dir = repo_dir / ".dotman"
+    config_path = dotman_dir / "config.yaml"
+    local_config_path = dotman_dir / "local.yaml"
+
+    config = {
+        "settings": {
+            "backup_dir": ".dotman/backups",
+            "template_suffix": ".j2",
+        },
+        "variables": {},
+        "packages": {
+            "pkg_with_executables": {
+                "depends": [],
+                "files": [{"source": "pkg/file", "target": "~/.pkg"}],
+                "variables": {},
+                "doctor": {
+                    "executables": [
+                        {"name": "python3", "severity": "error"},
+                        {"name": "nonexistent_command_xyz", "severity": "error"},
+                    ]
+                },
+            },
+        },
+    }
+
+    local_config = {
+        "packages": ["pkg_with_executables"],
+        "variables": {},
+        "file_overrides": {},
+    }
+
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    with open(local_config_path, "w") as f:
+        yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+    pkg_dir = repo_dir / "pkg"
+    pkg_dir.mkdir()
+    (pkg_dir / "file").write_text("# pkg file\n")
+
+    return repo_dir
+
+
+@pytest.fixture
+def repo_with_doctor_warning_only(temp_repo, home_dir, monkeypatch):
+    """Create a temp repo with packages that have only warning severity."""
+    repo_dir = temp_repo
+    dotman_dir = repo_dir / ".dotman"
+    config_path = dotman_dir / "config.yaml"
+    local_config_path = dotman_dir / "local.yaml"
+
+    config = {
+        "settings": {
+            "backup_dir": ".dotman/backups",
+            "template_suffix": ".j2",
+        },
+        "variables": {},
+        "packages": {
+            "pkg_with_warning": {
+                "depends": [],
+                "files": [{"source": "pkg/file", "target": "~/.pkg"}],
+                "variables": {},
+                "doctor": {
+                    "executables": [
+                        {"name": "nonexistent_command_xyz", "severity": "warning"},
+                    ]
+                },
+            },
+        },
+    }
+
+    local_config = {
+        "packages": ["pkg_with_warning"],
+        "variables": {},
+        "file_overrides": {},
+    }
+
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    with open(local_config_path, "w") as f:
+        yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+    pkg_dir = repo_dir / "pkg"
+    pkg_dir.mkdir()
+    (pkg_dir / "file").write_text("# pkg file\n")
+
+    return repo_dir
+
+
+@pytest.fixture
+def repo_with_doctor_config_and_deps(temp_repo, home_dir, monkeypatch):
+    """Create a temp repo with packages that have doctor config and dependencies."""
+    repo_dir = temp_repo
+    dotman_dir = repo_dir / ".dotman"
+    config_path = dotman_dir / "config.yaml"
+    local_config_path = dotman_dir / "local.yaml"
+
+    config = {
+        "settings": {
+            "backup_dir": ".dotman/backups",
+            "template_suffix": ".j2",
+        },
+        "variables": {},
+        "packages": {
+            "parent": {
+                "depends": ["child"],
+                "files": [{"source": "parent/file", "target": "~/.parent"}],
+                "variables": {},
+                "doctor": {
+                    "executables": [
+                        {"name": "python3", "severity": "error"},
+                    ]
+                },
+            },
+            "child": {
+                "depends": [],
+                "files": [{"source": "child/file", "target": "~/.child"}],
+                "variables": {},
+                "doctor": {
+                    "executables": [
+                        {"name": "git", "severity": "error"},
+                    ]
+                },
+            },
+        },
+    }
+
+    local_config = {
+        "packages": ["parent"],
+        "variables": {},
+        "file_overrides": {},
+    }
+
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    with open(local_config_path, "w") as f:
+        yaml.dump(local_config, f, default_flow_style=False, sort_keys=False)
+
+    parent_dir = repo_dir / "parent"
+    parent_dir.mkdir()
+    (parent_dir / "file").write_text("# parent file\n")
+
+    child_dir = repo_dir / "child"
+    child_dir.mkdir()
+    (child_dir / "file").write_text("# child file\n")
+
+    return repo_dir

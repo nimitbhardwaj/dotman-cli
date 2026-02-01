@@ -1,7 +1,7 @@
 """Configuration management for Dotman."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -33,6 +33,19 @@ class HookConfig(BaseModel):
     post_deploy: list[str] = Field(default_factory=list)
 
 
+class DoctorExecutable(BaseModel):
+    """A required or optional executable for a package."""
+
+    name: str
+    severity: Literal["error", "warning"]
+
+
+class DoctorConfig(BaseModel):
+    """Configuration for doctor executable checks."""
+
+    executables: list[DoctorExecutable] = Field(default_factory=list)
+
+
 class PackageConfig(BaseModel):
     """Configuration for a single package."""
 
@@ -40,6 +53,7 @@ class PackageConfig(BaseModel):
     files: list[FileMapping] = Field(default_factory=list)
     variables: dict[str, Any] = Field(default_factory=dict)
     hooks: HookConfig = Field(default_factory=HookConfig)
+    doctor: DoctorConfig | None = None
 
 
 class GlobalSettings(BaseModel):

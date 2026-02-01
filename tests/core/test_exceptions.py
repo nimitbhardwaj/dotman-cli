@@ -7,11 +7,13 @@ from dotman.core.exceptions import (
     ConfigNotFoundError,
     ConfigParseError,
     DependencyError,
+    DoctorError,
     DotmanError,
     LinkError,
     LinkExistsError,
     LinkTargetMissingError,
     MissingDependencyError,
+    MissingExecutableError,
     NothingToCommitError,
     PackageError,
     PackageNotFoundError,
@@ -107,6 +109,18 @@ class TestExceptionHierarchy:
         """Test NothingToCommitError inherits from RepositoryError."""
         error = NothingToCommitError("Nothing to commit")
         assert isinstance(error, RepositoryError)
+        assert isinstance(error, DotmanError)
+
+    def test_doctor_error_inherits_from_dotman(self):
+        """Test DoctorError inherits from DotmanError."""
+        error = DoctorError("Doctor error")
+        assert isinstance(error, DotmanError)
+        assert isinstance(error, DoctorError)
+
+    def test_missing_executable_error_inherits_from_doctor(self):
+        """Test MissingExecutableError inherits from DoctorError."""
+        error = MissingExecutableError("Missing executable error")
+        assert isinstance(error, DoctorError)
         assert isinstance(error, DotmanError)
 
 
@@ -289,6 +303,28 @@ class TestExceptionUsage:
 
         assert "dotfiles" in str(exc_info.value)
 
+    def test_missing_executable_error_message(self):
+        """Test MissingExecutableError includes package and executable details."""
+        with pytest.raises(MissingExecutableError) as exc_info:
+            raise MissingExecutableError(
+                "Package 'nvim-base' requires executable 'nvim' (severity: error)"
+            )
+
+        assert "nvim-base" in str(exc_info.value)
+        assert "nvim" in str(exc_info.value)
+        assert "error" in str(exc_info.value)
+
+    def test_missing_executable_error_with_warning_severity(self):
+        """Test MissingExecutableError with warning severity."""
+        with pytest.raises(MissingExecutableError) as exc_info:
+            raise MissingExecutableError(
+                "Package 'opencode' optionally requires 'bun' (severity: warning)"
+            )
+
+        assert "opencode" in str(exc_info.value)
+        assert "bun" in str(exc_info.value)
+        assert "warning" in str(exc_info.value)
+
 
 class TestExceptionProperties:
     """Test exception properties and attributes."""
@@ -379,3 +415,26 @@ class TestExceptionInheritance:
                 raise exc_class(message)
             except DotmanError:
                 pass  # Expected
+
+    def test_doctor_error_hierarchy(self):
+        """Test DoctorError can be caught at different hierarchy levels."""
+        # Should be able to catch MissingExecutableError as DoctorError
+        with pytest.raises(DoctorError):
+            raise MissingExecutableError("Executable 'nvim' not found")
+
+        # Should be able to catch MissingExecutableError as DotmanError
+        with pytest.raises(DotmanError):
+            raise MissingExecutableError("Executable 'git' not found")
+
+    def test_missing_executable_mro_is_correct(self):
+        """Test MissingExecutableError Method Resolution Order is correct."""
+        mro = MissingExecutableError.__mro__
+        expected_order = (
+            MissingExecutableError,
+            DoctorError,
+            DotmanError,
+            Exception,
+            BaseException,
+            object,
+        )
+        assert list(mro[:6]) == list(expected_order)

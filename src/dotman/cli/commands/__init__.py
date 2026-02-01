@@ -5,6 +5,7 @@ from dotman.cli.commands.absorb import absorb_changes
 from dotman.cli.commands.clean import clean
 from dotman.cli.commands.clone import clone
 from dotman.cli.commands.deploy import deploy, undeploy
+from dotman.cli.commands.doctor import doctor
 from dotman.cli.commands.init import init
 from dotman.cli.commands.pull import pull
 from dotman.cli.commands.push import push
@@ -27,6 +28,7 @@ __all__ = [
     "clean",
     "clone",
     "deploy",
+    "doctor",
     "history",
     "init",
     "list_packages",

@@ -5,9 +5,12 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from dotman.core.config import (
     Config,
+    DoctorConfig,
+    DoctorExecutable,
     FileMapping,
     GlobalConfig,
     LocalConfig,
@@ -35,6 +38,63 @@ class TestFileMapping:
         mapping = FileMapping(source="source", target="target")
         assert hasattr(mapping, "source")
         assert hasattr(mapping, "target")
+
+
+class TestDoctorExecutable:
+    """Test DoctorExecutable Pydantic model."""
+
+    def test_doctor_executable_creation(self):
+        """Test creating a valid DoctorExecutable with error severity."""
+        executable = DoctorExecutable(name="nvim", severity="error")
+        assert executable.name == "nvim"
+        assert executable.severity == "error"
+
+    def test_doctor_executable_warning_severity(self):
+        """Test creating a DoctorExecutable with warning severity."""
+        executable = DoctorExecutable(name="node", severity="warning")
+        assert executable.name == "node"
+        assert executable.severity == "warning"
+
+    def test_doctor_executable_name_required(self):
+        """Test that name field is required."""
+        with pytest.raises(ValidationError):
+            DoctorExecutable(severity="error")
+
+    def test_doctor_executable_severity_required(self):
+        """Test that severity field is required."""
+        with pytest.raises(ValidationError):
+            DoctorExecutable(name="nvim")
+
+    def test_doctor_executable_invalid_severity(self):
+        """Test that invalid severity value raises validation error."""
+        with pytest.raises(ValidationError):
+            DoctorExecutable(name="nvim", severity="invalid")
+
+
+class TestDoctorConfig:
+    """Test DoctorConfig Pydantic model."""
+
+    def test_doctor_config_empty_defaults(self):
+        """Test DoctorConfig with default empty executables list."""
+        config = DoctorConfig()
+        assert config.executables == []
+
+    def test_doctor_config_with_executables(self):
+        """Test DoctorConfig with list of executables."""
+        executables = [
+            DoctorExecutable(name="nvim", severity="error"),
+            DoctorExecutable(name="git", severity="error"),
+        ]
+        config = DoctorConfig(executables=executables)
+        assert len(config.executables) == 2
+        assert config.executables[0].name == "nvim"
+        assert config.executables[1].name == "git"
+
+    def test_doctor_config_single_executable(self):
+        """Test DoctorConfig with a single executable."""
+        executable = DoctorExecutable(name="zsh", severity="error")
+        config = DoctorConfig(executables=[executable])
+        assert len(config.executables) == 1
 
 
 class TestPackageConfig:
@@ -66,6 +126,32 @@ class TestPackageConfig:
         variables = {"editor": "vim", "theme": "dark"}
         config = PackageConfig(variables=variables)
         assert config.variables == variables
+
+    def test_package_config_with_doctor(self):
+        """Test PackageConfig with doctor configuration."""
+        doctor_config = DoctorConfig(
+            executables=[
+                DoctorExecutable(name="nvim", severity="error"),
+                DoctorExecutable(name="git", severity="warning"),
+            ]
+        )
+        config = PackageConfig(doctor=doctor_config)
+        assert config.doctor is not None
+        assert len(config.doctor.executables) == 2
+        assert config.doctor.executables[0].name == "nvim"
+        assert config.doctor.executables[0].severity == "error"
+
+    def test_package_config_doctor_defaults_to_none(self):
+        """Test PackageConfig doctor field defaults to None."""
+        config = PackageConfig()
+        assert config.doctor is None
+
+    def test_package_config_empty_doctor(self):
+        """Test PackageConfig with empty doctor config."""
+        doctor_config = DoctorConfig()
+        config = PackageConfig(doctor=doctor_config)
+        assert config.doctor is not None
+        assert config.doctor.executables == []
 
 
 class TestGlobalConfig:

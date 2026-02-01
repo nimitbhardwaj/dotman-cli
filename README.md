@@ -144,6 +144,7 @@ packages:
 | `dotman rollback [id]`       | Rollback a deployment by ID                    |
 | `dotman repo add <name>`     | Register current directory as a repository     |
 | `dotman repo list`           | List all registered repositories               |
+| `dotman doctor [packages]`   | Check required executables are present         |
 
 ### Options
 
@@ -199,6 +200,156 @@ packages:
 ```
 
 The `absorb_ignore` field accepts a list of regex patterns that are matched against the full file path. If a file matches any pattern, it will be skipped during absorption.
+
+## Doctor Configuration
+
+Dotman can check if required executables are present on your system before deploying packages. This helps identify missing dependencies early, preventing partial deployments and confusing errors.
+
+### Basic Configuration
+
+Define executable requirements in your package configuration:
+
+```yaml
+packages:
+  nvim:
+    depends: []
+    files:
+      - source: "nvim"
+        target: "~/.config/nvim"
+    doctor:
+      executables:
+        - name: nvim
+          severity: error
+        - name: git
+          severity: error
+```
+
+### Severity Levels
+
+The `severity` field determines how missing executables are treated:
+
+- **`error`**: The executable is required for the package to work. If missing, `dotman deploy` may fail or produce unexpected results. The doctor command returns exit code 1.
+- **`warning`**: The executable is optional or only needed for certain features. If missing, the package may still work with reduced functionality. The doctor command returns exit code 0 but shows a warning.
+
+### Example Configuration
+
+```yaml
+packages:
+  nvim-base:
+    description: "Neovim configuration with LazyVim for base"
+    files:
+      - source: "nvim/base/"
+        target: "~/.config/nvim"
+    doctor:
+      executables:
+        - name: nvim
+          severity: error
+        - name: git
+          severity: error
+
+  opencode:
+    description: "OpenCode AI assistant configuration"
+    files:
+      - source: "opencode"
+        target: "~/.config/opencode"
+    doctor:
+      executables:
+        - name: node
+          severity: warning
+        - name: bun
+          severity: warning
+
+  zsh:
+    description: "Zsh Config for the system"
+    files:
+      - source: "zsh/.zshrc"
+        target: "~/.zshrc"
+    doctor:
+      executables:
+        - name: zsh
+          severity: error
+```
+
+### Using the Doctor Command
+
+```bash
+# Check all enabled packages
+dotman doctor
+
+# Check specific packages
+dotman doctor nvim zsh
+
+# Check with custom config directory
+dotman doctor --config-dir ~/.dotfiles
+```
+
+### Example Output
+
+```
+$ dotman doctor
+
+╭───────────────────────────────────────────────────────────────────────────╮
+│ Doctor Check Results                                                      │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Package: nvim-base                                                        │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Executable   Status    Severity    Path                                  │
+│ nvim         ✓ Found   error       /usr/bin/nvim                          │
+│ git          ✓ Found   error       /usr/bin/git                           │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Package: opencode                                                         │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Executable   Status    Severity    Path                                  │
+│ node         ✓ Found   warning     /usr/bin/node                          │
+│ bun          ✗ Missing warning     Not in PATH                           │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Package: zsh                                                              │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Executable   Status    Severity    Path                                  │
+│ zsh          ✓ Found   error       /usr/bin/zsh                           │
+╰───────────────────────────────────────────────────────────────────────────╯
+
+Summary: 0 errors, 1 warning, 4 passed
+```
+
+### Exit Codes
+
+- **Exit code 0**: No error-severity executables are missing (warnings are acceptable)
+- **Exit code 1**: One or more error-severity executables are missing
+
+### How It Works
+
+1. The doctor command loads your configuration and resolves the package dependency tree
+2. For each package with `doctor.executables` defined, it checks if each executable exists in your system's PATH
+3. Executable lookup uses `shutil.which()` for cross-platform compatibility (Linux, macOS, Windows)
+4. Results are displayed in a formatted table grouped by package
+5. A summary shows totals for errors, warnings, and passed checks
+
+### Packages Without Doctor Config
+
+Packages without a `doctor` configuration are still shown in the output with "No executable requirements":
+
+```
+$ dotman doctor
+
+╭───────────────────────────────────────────────────────────────────────────╮
+│ Doctor Check Results                                                      │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Package: simple-config                                                    │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Executable   Status    Severity    Path                                  │
+│              No executable requirements                                   │
+╰───────────────────────────────────────────────────────────────────────────╯
+
+Summary: 0 errors, 0 warnings, 0 passed
+```
+
+### Best Practices
+
+- Set `severity: error` for executables that are strictly required (e.g., `nvim`, `git`)
+- Set `severity: warning` for executables that are optional or only needed for specific features
+- Run `dotman doctor` before `dotman deploy` to catch missing dependencies early
+- Use `--dry-run` with deploy to preview changes after fixing any doctor issues
 
 ### Overlapping Targets
 

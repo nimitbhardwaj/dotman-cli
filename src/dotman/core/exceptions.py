@@ -209,3 +209,15 @@ class NothingToCommitError(RepositoryError):
     """No changes to commit in the repository."""
 
     pass
+
+
+class DoctorError(DotmanError):
+    """Doctor-related errors."""
+
+    pass
+
+
+class MissingExecutableError(DoctorError):
+    """Required executable is not found in PATH."""
+
+    pass
