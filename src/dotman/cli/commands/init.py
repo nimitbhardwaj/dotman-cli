@@ -1,12 +1,13 @@
 """Init command for dotman CLI."""
 
+import os
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from dotman.cli_utils import app, console, get_config
-from dotman.core.config import get_repo_manager
+from dotman.cli_utils import app, console
+from dotman.core.config import Config, get_repo_manager
 from dotman.managers import RemoteManager
 
 
@@ -23,10 +24,13 @@ def init(
 ) -> None:
     """Initialize dotman configuration in the current directory.
 
-    Creates a .dotman/ folder with global.yaml and local.yaml configs.
+    Creates a .dotman/ folder with config.yaml and local.yaml configs.
     Run this from your dotfiles repository root.
     """
-    config = get_config(config_dir=config_dir)
+    # Not get_config(): that falls back to the default repo, init must not.
+    config = Config(
+        config_dir or Path(os.environ.get("DOTMAN_CONFIG_DIR") or Path.cwd())
+    )
 
     if config.is_initialized():
         console.print("[yellow]Dotman is already initialized.[/yellow]")

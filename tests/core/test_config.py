@@ -18,6 +18,8 @@ from dotman.core.config import (
 )
 from dotman.core.exceptions import (
     CircularDependencyError,
+    CircularIncludeError,
+    ConfigIncludeNotFoundError,
     ConfigNotFoundError,
     ConfigParseError,
     MissingDependencyError,
@@ -996,3 +998,37 @@ class TestConfigTopologicalSort:
         order = config.get_packages_in_deployment_order()
 
         assert order == []
+
+
+class TestIncludes:
+    """Test the `includes:` key in config.yaml."""
+
+    def _config(self, tmp_path, text):
+        (tmp_path / ".dotman").mkdir(exist_ok=True)
+        (tmp_path / ".dotman/config.yaml").write_text(text)
+        return Config(tmp_path)
+
+    def test_includes_merge_with_including_file_winning(self, tmp_path):
+        (tmp_path / "base.yaml").write_text(
+            "variables: {editor: vim, shell: bash}\n"
+            "packages: {git: {files: [{source: g, target: ~/.g}]}}\n"
+        )
+        config = self._config(
+            tmp_path,
+            "includes: [../base.yaml]\nvariables: {editor: nvim}\n"
+            "packages: {zsh: {}}\n",
+        )
+        assert config.global_config.variables == {"editor": "nvim", "shell": "bash"}
+        assert set(config.global_config.packages) == {"git", "zsh"}
+
+    def test_circular_include_raises(self, tmp_path):
+        (tmp_path / "a.yaml").write_text("includes: [b.yaml]\n")
+        (tmp_path / "b.yaml").write_text("includes: [a.yaml]\n")
+        config = self._config(tmp_path, "includes: [../a.yaml]\n")
+        with pytest.raises(CircularIncludeError):
+            config.global_config
+
+    def test_missing_include_raises(self, tmp_path):
+        config = self._config(tmp_path, "includes: [nope.yaml]\n")
+        with pytest.raises(ConfigIncludeNotFoundError):
+            config.global_config

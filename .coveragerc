@@ -8,8 +8,6 @@ omit =
     tests/*
     */test_*
     */*test*
-    src/dotman/cli/commands/*
-    src/dotman/cli/*
     src/dotman/main.py
 # Branch coverage for more thorough testing
 branch = false

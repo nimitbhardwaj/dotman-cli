@@ -140,54 +140,44 @@ def rollback(
 
         console.print(f"Processing: {target}")
 
-        if deployed_file.is_template:
-            if target.exists():
-                if not dry_run:
-                    target.unlink()
-                    console.print(
-                        f"  [green]Removed rendered template: {target}[/green]"
-                    )
-                else:
-                    console.print(
-                        f"  [cyan]Would remove rendered template: {target}[/cyan]"
-                    )
-                success_count += 1
+        # Templates are regular files we wrote; links must still be symlinks.
+        # A real file where a link used to be belongs to the user: leave it.
+        ours = target.is_file() if deployed_file.is_template else target.is_symlink()
+        if ours:
+            if not dry_run:
+                target.unlink()
+                console.print(f"  [green]Removed: {target}[/green]")
             else:
-                console.print(f"  [yellow]Already removed: {target}[/yellow]")
-                skipped_count += 1
+                console.print(f"  [cyan]Would remove: {target}[/cyan]")
+            success_count += 1
+        elif target.exists():
+            console.print(
+                f"  [yellow]Not a dotman-managed file, leaving it: {target}[/yellow]"
+            )
+            skipped_count += 1
+            continue
         else:
-            if target.is_symlink() or target.exists():
-                if not dry_run:
-                    if target.is_symlink():
-                        target.unlink()
-                    elif target.is_file():
-                        target.unlink()
-                    console.print(f"  [green]Removed symlink: {target}[/green]")
-                else:
-                    console.print(f"  [cyan]Would remove symlink: {target}[/cyan]")
-                success_count += 1
-            else:
-                console.print(f"  [yellow]Already removed: {target}[/yellow]")
-                skipped_count += 1
+            console.print(f"  [yellow]Already removed: {target}[/yellow]")
+            skipped_count += 1
 
-            if backup_path and Path(backup_path).exists():
-                if not dry_run:
-                    if history_manager.restore_from_backup(Path(backup_path), target):
-                        console.print(
-                            f"  [green]Restored from backup: {backup_path}[/green]"
-                        )
-                        history_manager.cleanup_backup(Path(backup_path))
-                    else:
-                        console.print(
-                            f"  [red]Failed to restore from backup: {backup_path}[/red]"
-                        )
-                        fail_count += 1
+        if backup_path and Path(backup_path).exists():
+            if not dry_run:
+                if history_manager.restore_from_backup(Path(backup_path), target):
+                    console.print(
+                        f"  [green]Restored from backup: {backup_path}[/green]"
+                    )
+                    history_manager.cleanup_backup(Path(backup_path))
                 else:
                     console.print(
-                        f"  [cyan]Would restore from backup: {backup_path}[/cyan]"
+                        f"  [red]Failed to restore from backup: {backup_path}[/red]"
                     )
-            elif backup_path:
-                console.print(f"  [yellow]Backup not found: {backup_path}[/yellow]")
+                    fail_count += 1
+            else:
+                console.print(
+                    f"  [cyan]Would restore from backup: {backup_path}[/cyan]"
+                )
+        elif backup_path:
+            console.print(f"  [yellow]Backup not found: {backup_path}[/yellow]")
 
     console.print("\n[bold]Rollback summary:[/bold]")
     console.print(f"  Processed: {success_count}")

@@ -15,7 +15,7 @@ classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: MIT License",
 ]
-version = "0.3.0"
+version = "0.4.0"
 description = "One more dot file manager but an interesting and easy to use one."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -74,6 +74,8 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 combine-as-imports = true
 
 [tool.mypy]
+# select.kqueue only exists in the darwin stubs; check as darwin everywhere
+platform = "darwin"
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true
