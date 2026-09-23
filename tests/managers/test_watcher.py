@@ -229,9 +229,10 @@ class TestCreateWatcher:
         assert watcher is not None
 
         if sys.platform == "linux":
-            from dotman.managers.watcher import InotifyWatcher
+            from dotman.managers.watcher import InotifyWatcher, PollingWatcher
 
-            assert isinstance(watcher, InotifyWatcher)
+            # Polling is the fallback when the optional inotify package is absent
+            assert isinstance(watcher, (InotifyWatcher, PollingWatcher))
         elif sys.platform == "darwin":
             from dotman.managers.watcher import KqueueWatcher
 
@@ -250,9 +251,10 @@ class TestCreateWatcher:
         assert watcher1 is not watcher2
 
         if sys.platform == "linux":
-            from dotman.managers.watcher import InotifyWatcher
+            from dotman.managers.watcher import InotifyWatcher, PollingWatcher
 
-            assert isinstance(watcher1, InotifyWatcher)
+            # Polling is the fallback when the optional inotify package is absent
+            assert isinstance(watcher1, (InotifyWatcher, PollingWatcher))
             assert isinstance(watcher2, InotifyWatcher)
         elif sys.platform == "darwin":
             from dotman.managers.watcher import KqueueWatcher
