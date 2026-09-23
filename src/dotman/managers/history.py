@@ -197,8 +197,5 @@ class HistoryManager:
 
     def cleanup_backup(self, backup_path: Path, dry_run: bool = False) -> None:
         """Remove a backup file after successful restoration."""
-        if backup_path.exists():
-            if not dry_run:
-                backup_path.unlink()
-            elif backup_path.exists():
-                backup_path.unlink()
+        if backup_path.exists() and not dry_run:
+            backup_path.unlink()

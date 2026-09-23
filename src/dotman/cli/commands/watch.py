@@ -137,7 +137,7 @@ def watch(
                 dry_run=dry_run,
                 config_dir=config_dir,
                 backup_dir=backup_dir,
-                template_suffix=None,
+                repo_name=repo_name,
             )
 
         if once:
@@ -197,7 +197,7 @@ def watch(
                         dry_run=dry_run,
                         config_dir=config_dir,
                         backup_dir=backup_dir,
-                        template_suffix=None,
+                        repo_name=repo_name,
                     )
 
                     deploy_scheduled = False

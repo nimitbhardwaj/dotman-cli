@@ -149,7 +149,13 @@ class RemoteManager:
         if not target_dir.exists():
             raise RemoteCloneError(f"Clone failed: {target_dir} was not created")
 
-        self._run_git_command(["lfs", "install"], cwd=target_dir)
+        if auth_token:
+            # The token was embedded in the URL; keep it out of .git/config
+            self._run_git_command(
+                ["remote", "set-url", "origin", url], cwd=target_dir, check=False
+            )
+        # git-lfs is optional: a missing binary must not fail a finished clone
+        self._run_git_command(["lfs", "install"], cwd=target_dir, check=False)
 
         return target_dir
 
@@ -323,6 +329,15 @@ class RemoteManager:
         """
         result = self._run_git_command(["diff", "--quiet"], check=False)
         return result.returncode != 0
+
+    def has_changes(self) -> bool:
+        """Check for staged, unstaged, or untracked changes.
+
+        Returns:
+            True if `git add -A` would have something to commit
+        """
+        result = self._run_git_command(["status", "--porcelain"])
+        return bool(cast(str, result.stdout).strip())
 
     def add_remote(self, name: str, url: str) -> None:
         """Add a remote to the repository.
