@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
 """Dotman - A dotfile manager for symlinks and templates."""
 
-import sys
-
-from dotman.cli import app, console
-from dotman.core.exceptions import DotmanError
+from dotman.cli import app
 
 
 def main() -> None:
     """Entry point for the dotman CLI."""
-    try:
-        app()
-    except DotmanError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        sys.exit(1)
+    app()
 
 
 if __name__ == "__main__":

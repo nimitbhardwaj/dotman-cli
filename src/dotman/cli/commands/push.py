@@ -70,7 +70,11 @@ def push(
     try:
         remote_url = remote_manager.get_remote_url(remote_name)
 
-        if not remote_manager.has_changes():
+        has_changes = (
+            remote_manager.has_staged_changes() or remote_manager.has_unstaged_changes()
+        )
+
+        if not has_changes:
             console.print("[yellow]No changes to commit.[/yellow]")
             raise typer.Exit(0)
 

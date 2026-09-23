@@ -1,6 +1,5 @@
 """Absorb command for dotman CLI."""
 
-import fnmatch
 import re
 from pathlib import Path
 from typing import Annotated
@@ -11,21 +10,10 @@ from dotman.cli_utils import app, console, get_config
 from dotman.core.link_manager import LinkManager
 
 
-def _is_ignored(pattern: str, path: Path, relative: Path) -> bool:
-    """Match a pattern as a glob on the relative path, or a regex on the full path."""
-    if fnmatch.fnmatch(str(relative), pattern) or fnmatch.fnmatch(path.name, pattern):
-        return True
-    try:
-        return re.search(pattern, str(path)) is not None
-    except re.error:
-        return False
-
-
 def _should_skip_file(
     target_file: Path,
     absorb_ignore: list[str] | None,
     dest_file: Path,
-    relative: Path | None = None,
 ) -> tuple[bool, str]:
     """Check if a file should be skipped during absorption.
 
@@ -36,9 +24,8 @@ def _should_skip_file(
         return True, "symlink"
     if target_file.name.endswith(".j2"):
         return True, "template"
-    relative = relative or Path(target_file.name)
     if absorb_ignore and any(
-        _is_ignored(pattern, target_file, relative) for pattern in absorb_ignore
+        re.search(pattern, str(target_file)) for pattern in absorb_ignore
     ):
         return True, "ignored"
     if dest_file.exists():
@@ -107,8 +94,9 @@ def absorb_changes(
         console.print("[red]Dotman is not initialized. Run 'dotman init' first.[/red]")
         raise typer.Exit(1)
 
+    packages_to_absorb = packages or config.get_enabled_packages()
     # Sort for deterministic behavior (first package wins conflicts)
-    packages_to_absorb = sorted(packages or config.get_enabled_packages())
+    packages_to_absorb.sort()
 
     package_objs = []
     for package_name in packages_to_absorb:
@@ -150,7 +138,7 @@ def absorb_changes(
                     dest_file = source / relative_path
 
                     should_skip, _ = _should_skip_file(
-                        target_file, absorb_ignore, dest_file, relative_path
+                        target_file, absorb_ignore, dest_file
                     )
                     if should_skip:
                         continue

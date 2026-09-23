@@ -2,13 +2,13 @@
 
 import os
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
 
 from dotman import __version__
 from dotman.core.config import Config, get_repo_manager
-from dotman.core.exceptions import DotmanError
 
 console = Console()
 
@@ -27,24 +27,32 @@ repo_app = typer.Typer(
 def get_config(
     config_dir: Path | None = None,
     backup_dir: str | None = None,
+    template_suffix: str | None = None,
     repo_name: str | None = None,
 ) -> Config:
-    """Resolve which dotfiles repository to use and load its configuration.
+    """Get the configuration instance."""
+    if config_dir is None:
+        if os.environ.get("DOTMAN_CONFIG_DIR"):
+            config_dir = Path(os.environ["DOTMAN_CONFIG_DIR"])
 
-    Priority: --repo > --config-dir > $DOTMAN_CONFIG_DIR > cwd, and if cwd is
-    not a dotman repo, the default registered repository.
-    """
     if repo_name is not None:
-        config_dir = get_repo_manager().get_repository(repo_name).path
-    elif config_dir is None and os.environ.get("DOTMAN_CONFIG_DIR"):
-        config_dir = Path(os.environ["DOTMAN_CONFIG_DIR"])
-    elif config_dir is None and not Config(Path.cwd()).is_initialized():
-        try:
-            config_dir = get_repo_manager().get_repository(None).path
-        except DotmanError:
-            pass
+        repo_manager = get_repo_manager()
+        repo_config = repo_manager.get_repository(repo_name)
+        config_dir = repo_config.path
 
-    return Config(config_dir or Path.cwd(), repo_name=repo_name, backup_dir=backup_dir)
+    repo_dir = config_dir if config_dir is not None else Path.cwd()
+
+    return Config(repo_dir, repo_name=repo_name)
+
+
+def get_repository_option() -> Annotated[
+    str | None,
+    typer.Option(
+        "--repo", "-r", help="Repository name (uses default if not specified)"
+    ),
+]:
+    """Repository option for CLI commands."""
+    return None
 
 
 @app.callback(invoke_without_command=True)

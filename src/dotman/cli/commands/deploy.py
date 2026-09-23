@@ -10,6 +10,8 @@ from dotman.cli_utils import app, console, get_config
 from dotman.core.exceptions import (
     DotmanError,
     HookExecutionError,
+    LinkExistsError,
+    LinkTargetMissingError,
     MissingDependencyError,
 )
 from dotman.core.link_manager import LinkManager, LinkStatus
@@ -42,13 +44,17 @@ def deploy(
         str | None,
         typer.Option("--backup-dir", help="Override backup directory"),
     ] = None,
+    template_suffix: Annotated[
+        str | None,
+        typer.Option("--template-suffix", help="Override template suffix"),
+    ] = None,
     repo_name: Annotated[
         str | None,
         typer.Option("--repo", "-r", help="Repository name"),
     ] = None,
 ) -> None:
     """Deploy dotfiles by creating symlinks."""
-    config = get_config(config_dir, backup_dir, repo_name)
+    config = get_config(config_dir, backup_dir, template_suffix, repo_name)
 
     if repo_name:
         console.print(f"[cyan]Using repository: {repo_name}[/cyan]")
@@ -80,7 +86,6 @@ def deploy(
 
     deployment_id = str(uuid.uuid4())[:8]
     deployed_files: list[DeployedFile] = []
-    failed = False
 
     if dry_run:
         console.print("[cyan]Dry run mode - no changes will be made[/cyan]")
@@ -121,7 +126,6 @@ def deploy(
                             f"  [yellow]Skipping package '{pkg_name}'...[/yellow]"
                         )
                         skip_package = True
-                        failed = True
                         break
 
         if skip_package:
@@ -132,39 +136,57 @@ def deploy(
             target = Path(file_mapping.target).expanduser()
 
             try:
-                results = link_manager.create_link(
-                    source, target, force, dry_run, template_engine, variables
-                )
+                is_template = link_manager.is_template_file(source)
+
+                if is_template:
+                    if not dry_run:
+                        template_engine.render_file(source, variables, target)
+                        console.print(f"  [green]Rendered:[/green] {target}")
+                    else:
+                        console.print(f"  [cyan]Would render:[/cyan] {target}")
+
+                    deployed_files.append(
+                        DeployedFile(
+                            source=str(source),
+                            target=str(target),
+                            is_template=True,
+                        )
+                    )
+                else:
+                    results = link_manager.create_link(
+                        source, target, force, dry_run, template_engine, variables
+                    )
+                    for result in results:
+                        if result.status == LinkStatus.LINKED:
+                            if dry_run:
+                                console.print(f"  [cyan]{result.message}[/cyan]")
+                            else:
+                                console.print(
+                                    f"  [green]Linked:[/green]"
+                                    f" {result.target} -> {result.source}"
+                                )
+                            if result.backed_up:
+                                console.print(
+                                    f"    [yellow]Backed"
+                                    f" up to:[/yellow] {result.backed_up}"
+                                )
+
+                            deployed_files.append(
+                                DeployedFile(
+                                    source=str(result.source),
+                                    target=str(result.target),
+                                    is_template=False,
+                                    backup_path=str(result.backed_up)
+                                    if result.backed_up
+                                    else None,
+                                )
+                            )
+            except LinkExistsError as e:
+                console.print(f"  [red]Error:[/red] {e}")
+            except LinkTargetMissingError as e:
+                console.print(f"  [red]Error:[/red] {e}")
             except DotmanError as e:
                 console.print(f"  [red]Error:[/red] {e}")
-                failed = True
-                continue
-
-            for result in results:
-                if result.status != LinkStatus.LINKED:
-                    continue
-                is_template = link_manager.is_template_file(result.source)
-                if dry_run:
-                    console.print(f"  [cyan]{result.message}[/cyan]")
-                elif is_template:
-                    console.print(f"  [green]Rendered:[/green] {result.target}")
-                else:
-                    console.print(
-                        f"  [green]Linked:[/green] {result.target} -> {result.source}"
-                    )
-                if result.backed_up:
-                    console.print(
-                        f"    [yellow]Backed up to:[/yellow] {result.backed_up}"
-                    )
-
-                deployed_files.append(
-                    DeployedFile(
-                        source=str(result.source),
-                        target=str(result.target),
-                        is_template=is_template,
-                        backup_path=str(result.backed_up) if result.backed_up else None,
-                    )
-                )
 
         if pkg.hooks.post_deploy:
             target_dir = None
@@ -209,10 +231,6 @@ def deploy(
         console.print("\n[cyan]Dry run complete - no history recorded[/cyan]")
     else:
         console.print("\n[green]Deploy complete![/green]")
-
-    if failed:
-        console.print("[red]Some files failed to deploy (see errors above).[/red]")
-        raise typer.Exit(1)
 
 
 @app.command()

@@ -134,7 +134,6 @@ packages:
 | `dotman deploy [packages]`   | Deploy dotfiles (create symlinks)              |
 | `dotman undeploy [packages]` | Remove deployed symlinks                       |
 | `dotman status [packages]`   | Show status of deployed dotfiles               |
-| `dotman diff [packages]`     | Diff deployed files against what deploy would write (exit 1 on drift) |
 | `dotman list`                | List all available packages                    |
 | `dotman absorb [packages]`   | Absorb unmanaged files from target directories |
 | `dotman watch`               | Watch for file changes and deploy automatically |
@@ -150,8 +149,6 @@ packages:
 ### Options
 
 - `--config-dir, -c` - Override the config directory (default: `.dotman/` in current directory or `DOTMAN_CONFIG_DIR` env var)
-- `--repo, -r` - Use a registered repository. With no flag and no dotman repo in the current directory, the default registered repository is used, so `dotman status` works from anywhere
-- `--backup-dir` - Override `settings.backup_dir` (relative paths are relative to the repo)
 - `--dry-run, -n` - Preview changes without applying them
 - `--force, -f` - Overwrite existing files (with backup)
 - Specific packages can be passed to commands for targeted operations
@@ -202,7 +199,7 @@ packages:
           - ".git/**" # Ignore git directories
 ```
 
-Each `absorb_ignore` entry is tried as a glob against the path relative to the target (and the file name), then as a regex against the full path. If a file matches any pattern, it is skipped during absorption.
+The `absorb_ignore` field accepts a list of regex patterns that are matched against the full file path. If a file matches any pattern, it will be skipped during absorption.
 
 ## Doctor Configuration
 

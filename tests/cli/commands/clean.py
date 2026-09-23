@@ -311,14 +311,8 @@ class TestCleanCommand:
     ):
         """Test clean finds and removes empty directories."""
         monkeypatch.chdir(repo_with_source_files)
-        config_path = repo_with_source_files / ".dotman" / "config.yaml"
-        config = yaml.safe_load(config_path.read_text())
-        config["packages"]["bash"]["files"] = [
-            {"source": "bash", "target": "~/.config/app"}
-        ]
-        config_path.write_text(yaml.dump(config))
 
-        empty_dir = home_dir / ".config" / "app" / "empty_app"
+        empty_dir = home_dir / ".config" / "empty_app"
         empty_dir.mkdir(parents=True)
 
         result = runner.invoke(app, ["clean"], input="y\n")

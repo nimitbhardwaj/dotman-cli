@@ -468,10 +468,6 @@ def create_watcher() -> FileSystemWatcher:
         A FileSystemWatcher instance appropriate for the current platform
     """
     if sys.platform == "linux":
-        try:
-            import inotify.adapters  # noqa: F401
-        except ImportError:
-            return PollingWatcher()
         return InotifyWatcher()
     elif sys.platform == "darwin":
         return KqueueWatcher()

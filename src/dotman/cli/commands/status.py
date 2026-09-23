@@ -44,7 +44,6 @@ def status(
         return
 
     link_manager = LinkManager(config.backup_dir)
-    template_engine = TemplateEngine()
 
     table = Table(title="Dotman Status")
     table.add_column("Package", style="cyan")
@@ -67,26 +66,55 @@ def status(
             table.add_row(pkg_name, "-", "[yellow]Not found[/yellow]")
             continue
 
-        variables = config.get_merged_variables(pkg_name)
         for file_mapping in pkg.files:
             source = config.dotfiles_dir / file_mapping.source
             target = Path(file_mapping.target).expanduser()
 
             if source.is_dir():
-                pairs = [
-                    (f, link_manager.derive_target(f, source, target))
-                    for f in source.rglob("*")
-                    if f.is_file()
-                ]
-            else:
-                pairs = [(source, target)]
+                for source_file in source.rglob("*"):
+                    if source_file.is_file():
+                        relative_path = source_file.relative_to(source)
+                        file_target = target / relative_path
 
-            for source_file, file_target in pairs:
+                        display_target = file_target
+                        if link_manager.is_template_file(source_file):
+                            display_target = link_manager.get_template_target(
+                                file_target
+                            )
+
+                        variables = None
+                        template_engine_instance = None
+                        if link_manager.is_template_file(source_file):
+                            variables = config.get_merged_variables(pkg_name)
+                            template_engine_instance = TemplateEngine()
+
+                        link_status = link_manager.get_link_status(
+                            source_file,
+                            file_target,
+                            template_engine_instance,
+                            variables,
+                        )
+
+                        status_str = status_styles.get(
+                            link_status, str(link_status.value)
+                        )
+                        table.add_row(pkg_name, str(display_target), status_str)
+            else:
+                display_target = target
+                if link_manager.is_template_file(source):
+                    display_target = link_manager.get_template_target(target)
+
+                variables = None
+                template_engine_instance = None
+                if link_manager.is_template_file(source):
+                    variables = config.get_merged_variables(pkg_name)
+                    template_engine_instance = TemplateEngine()
+
                 link_status = link_manager.get_link_status(
-                    source_file, file_target, template_engine, variables
+                    source, target, template_engine_instance, variables
                 )
                 status_str = status_styles.get(link_status, str(link_status.value))
-                table.add_row(pkg_name, str(file_target), status_str)
+                table.add_row(pkg_name, str(display_target), status_str)
 
     console.print(table)
 
