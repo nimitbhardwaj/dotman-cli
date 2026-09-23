@@ -74,6 +74,8 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 combine-as-imports = true
 
 [tool.mypy]
+# select.kqueue only exists in the darwin stubs; check as darwin everywhere
+platform = "darwin"
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true
