@@ -96,9 +96,10 @@ def remove_repository(
     """
     repo_manager = get_repo_manager()
 
-    repo = repo_manager.get_repository(name)
-    if not repo:
-        console.print(f"[red]Repository '{name}' not found.[/red]")
+    try:
+        repo = repo_manager.get_repository(name)
+    except RepositoryNotFoundError as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
 
     if not force:

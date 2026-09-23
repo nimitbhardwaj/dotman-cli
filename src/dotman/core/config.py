@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 from dotman.core.exceptions import (
     CircularDependencyError,
+    CircularIncludeError,
+    ConfigIncludeNotFoundError,
     ConfigNotFoundError,
     ConfigParseError,
     MissingDependencyError,
@@ -79,6 +81,15 @@ class LocalConfig(BaseModel):
     file_overrides: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
+def _merge_config(base: dict[str, Any], overlay: dict[str, Any]) -> None:
+    """Merge overlay into base; mapping sections merge one level deep."""
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            base[key] = {**base[key], **value}
+        else:
+            base[key] = value
+
+
 def get_repo_manager(registry_dir: Path | None = None) -> RepoManager:
     """Get the repository manager instance.
 
@@ -114,7 +125,12 @@ def get_config_for_repo(
 class Config:
     """Main configuration class that merges global and local configs."""
 
-    def __init__(self, repo_dir: Path | None = None, repo_name: str | None = None):
+    def __init__(
+        self,
+        repo_dir: Path | None = None,
+        repo_name: str | None = None,
+        backup_dir: str | None = None,
+    ):
         """Initialize config for a dotfiles repository.
 
         Args:
@@ -122,9 +138,11 @@ class Config:
             Defaults to current working directory.
                       Config files are stored in repo_dir/.dotman/
             repo_name: Optional name of the repository (for display purposes)
+            backup_dir: Optional override for settings.backup_dir
         """
         self.repo_dir = repo_dir or Path.cwd()
         self.repo_name = repo_name
+        self._backup_dir_override = backup_dir
         self.dotman_dir = self.repo_dir / ".dotman"
         self.config_path = self.dotman_dir / "config.yaml"
         self.local_config_path = self.dotman_dir / "local.yaml"
@@ -157,10 +175,40 @@ class Config:
         except yaml.YAMLError as e:
             raise ConfigParseError(f"Error parsing {path}: {e}") from e
 
+    def _load_with_includes(
+        self, path: Path, stack: tuple[Path, ...] = ()
+    ) -> dict[str, Any]:
+        """Load a YAML file, merging its `includes` underneath it.
+
+        Includes resolve relative to the including file; later includes win
+        over earlier ones and the including file wins over all of them.
+
+        Raises:
+            CircularIncludeError: If a file includes itself, directly or not
+            ConfigIncludeNotFoundError: If an included file does not exist
+        """
+        path = path.resolve()
+        if path in stack:
+            chain = " -> ".join(p.name for p in (*stack, path))
+            raise CircularIncludeError(f"Circular reference detected: {chain}")
+
+        data = self._load_yaml(path)
+        merged: dict[str, Any] = {}
+        for include in data.pop("includes", None) or []:
+            include_path = (path.parent / Path(include).expanduser()).resolve()
+            if not include_path.exists():
+                raise ConfigIncludeNotFoundError(
+                    f"Included file not found: {include_path} (from {path})"
+                )
+            included = self._load_with_includes(include_path, (*stack, path))
+            _merge_config(merged, included)
+        _merge_config(merged, data)
+        return merged
+
     def _load_global_config(self) -> GlobalConfig:
         """Load the global configuration."""
         try:
-            data = self._load_yaml(self.config_path)
+            data = self._load_with_includes(self.config_path)
             return GlobalConfig(**data)
         except ConfigNotFoundError:
             return GlobalConfig()
@@ -185,8 +233,9 @@ class Config:
 
     @property
     def backup_dir(self) -> Path:
-        """Get the backup directory path."""
-        return self.dotman_dir / "backups"
+        """Get the backup directory path (relative paths are repo-relative)."""
+        backup_dir = self._backup_dir_override or self.settings.backup_dir
+        return self.repo_dir / Path(backup_dir).expanduser()
 
     def get_enabled_packages(self) -> list[str]:
         """Get list of packages enabled in local config."""

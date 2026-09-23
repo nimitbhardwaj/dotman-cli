@@ -1,6 +1,7 @@
 """Symlink management for Dotman."""
 
 import shutil
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -112,14 +113,13 @@ class LinkManager:
         # Check if source is a template file
         if self.is_template_file(source):
             # For template files, we check if the rendered file exists
-            template_target = self.get_template_target(target)
-            if not template_target.exists():
+            if not target.exists():
                 return LinkStatus.NOT_DEPLOYED
 
             # If template_engine is provided, compare content
             if template_engine is not None:
                 is_synced, _ = self.compare_content(
-                    source, template_target, variables or {}, template_engine
+                    source, target, variables or {}, template_engine
                 )
                 return LinkStatus.MODIFIED if not is_synced else LinkStatus.SYNCED
 
@@ -167,6 +167,18 @@ class LinkManager:
             )
         ]
 
+    def derive_target(
+        self, source_file: Path, source_dir: Path, target_dir: Path
+    ) -> Path:
+        """Map a file inside a source directory to its target path.
+
+        Templates found inside directories drop their .j2 suffix.
+        """
+        target_file = target_dir / source_file.relative_to(source_dir)
+        if self.is_template_file(source_file):
+            return self.get_template_target(target_file)
+        return target_file
+
     def _create_links_recursive(
         self,
         source_dir: Path,
@@ -182,8 +194,7 @@ class LinkManager:
         for source_file in source_dir.rglob("*"):
             if source_file.is_file():
                 # Calculate relative path and target location
-                relative_path = source_file.relative_to(source_dir)
-                target_file = target_dir / relative_path
+                target_file = self.derive_target(source_file, source_dir, target_dir)
 
                 result = self._create_single_link(
                     source_file, target_file, force, dry_run, template_engine, variables
@@ -202,27 +213,33 @@ class LinkManager:
         variables: dict[str, Any] | None = None,
     ) -> LinkResult:
         """Create a single symlink from target to source."""
-        # Handle template files by rendering them first (no symlink for templates)
+        # Handle template files by rendering them (no symlink for templates)
         if template_engine and self.is_template_file(source):
-            target_file = self.get_template_target(target)
             try:
-                if not dry_run:
-                    # Render the template to the target location
-                    template_engine.render_file(source, variables or {}, target_file)
+                if dry_run:
                     return LinkResult(
                         source=source,
-                        target=target_file,
+                        target=target,
                         status=LinkStatus.LINKED,
-                        message=f"Rendered template: {target_file}",
+                        message=f"Would render template: {target}",
                     )
-                else:
-                    return LinkResult(
-                        source=source,
-                        target=target_file,
-                        status=LinkStatus.LINKED,
-                        message=f"Would render template: {target_file}",
-                    )
-            except Exception as e:
+                rendered = template_engine.render_file(source, variables or {})
+                backed_up = None
+                if target.is_symlink():
+                    # Writing would go through the link into the repo
+                    target.unlink()
+                elif target.exists() and target.read_text() != rendered:
+                    backed_up = self._backup_file(target)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(rendered)
+                return LinkResult(
+                    source=source,
+                    target=target,
+                    status=LinkStatus.LINKED,
+                    message=f"Rendered template: {target}",
+                    backed_up=backed_up,
+                )
+            except (OSError, TemplateRenderError) as e:
                 raise TemplateRenderError(
                     f"Failed to render template {source}: {e}"
                 ) from e
@@ -295,7 +312,7 @@ class LinkManager:
         """Backup a file before replacing it."""
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_name = f"{path.name}.{timestamp}"
+        backup_name = f"{path.name}.{timestamp}.{uuid.uuid4().hex[:6]}"
         backup_path = self.backup_dir / backup_name
         shutil.move(str(path), str(backup_path))
         return backup_path
@@ -324,8 +341,7 @@ class LinkManager:
 
         for source_file in source_dir.rglob("*"):
             if source_file.is_file():
-                relative_path = source_file.relative_to(source_dir)
-                target_file = target_dir / relative_path
+                target_file = self.derive_target(source_file, source_dir, target_dir)
 
                 result = self._remove_single_link(source_file, target_file, dry_run)
                 results.append(result)
