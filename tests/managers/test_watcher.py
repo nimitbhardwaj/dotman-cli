@@ -255,7 +255,7 @@ class TestCreateWatcher:
 
             # Polling is the fallback when the optional inotify package is absent
             assert isinstance(watcher1, (InotifyWatcher, PollingWatcher))
-            assert isinstance(watcher2, InotifyWatcher)
+            assert isinstance(watcher2, (InotifyWatcher, PollingWatcher))
         elif sys.platform == "darwin":
             from dotman.managers.watcher import KqueueWatcher
 
